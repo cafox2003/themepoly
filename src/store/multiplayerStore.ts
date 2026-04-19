@@ -46,7 +46,8 @@ const send = (message: ClientMessage) => {
 
 const defaultUrl = () => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  return `${protocol}://${window.location.hostname}:8787`;
+  // return `${protocol}://${window.location.hostname}:8787`;
+  return "https://themepoly.onrender.com/"
 };
 
 const actionPlayerId = (action: GameAction) => ("playerId" in action ? action.playerId : null);
