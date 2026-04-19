@@ -34,20 +34,18 @@ const assertPlayerTurn = (state: GameState, playerId: string) => {
 
 const changeMoney = (state: GameState, player: Player, amount: number) => {
   player.money += amount;
-  if (player.money < 0) {
-    player.bankrupt = true;
-    releaseProperties(state, player.id);
-  }
 };
 
 const payBank = (state: GameState, player: Player, amount: number) => {
   changeMoney(state, player, -amount);
   if (state.settings.freeParkingJackpot) state.bank.freeParkingPot += amount;
+  if (player.money < 0) bankruptToBank(state, player);
 };
 
 const transferMoney = (state: GameState, from: Player, to: Player, amount: number) => {
   changeMoney(state, from, -amount);
   changeMoney(state, to, amount);
+  if (from.money < 0) bankruptToPlayer(state, from, to);
 };
 
 const releaseProperties = (state: GameState, playerId: string) => {
@@ -62,6 +60,26 @@ const releaseProperties = (state: GameState, playerId: string) => {
   if (player) player.ownedPropertyIds = [];
 };
 
+const transferProperties = (state: GameState, from: Player, to: Player) => {
+  for (const tileId of [...from.ownedPropertyIds]) {
+    const property = state.properties[tileId];
+    property.ownerId = to.id;
+    property.houses = 0;
+    if (!to.ownedPropertyIds.includes(tileId)) to.ownedPropertyIds.push(tileId as TileId);
+  }
+  from.ownedPropertyIds = [];
+};
+
+const bankruptToBank = (state: GameState, player: Player) => {
+  player.bankrupt = true;
+  releaseProperties(state, player.id);
+};
+
+const bankruptToPlayer = (state: GameState, player: Player, creditor: Player) => {
+  player.bankrupt = true;
+  transferProperties(state, player, creditor);
+};
+
 const activePlayers = (state: GameState) => state.players.filter((player) => !player.bankrupt);
 
 const updateWinner = (state: GameState) => {
@@ -69,6 +87,16 @@ const updateWinner = (state: GameState) => {
   if (active.length === 1 && state.players.length > 1) {
     state.phase = "GAME_OVER";
     state.winnerId = active[0].id;
+    return;
+  }
+  if (active.length > 1 && state.players[state.currentTurn]?.bankrupt) {
+    let nextTurn = state.currentTurn;
+    do {
+      nextTurn = (nextTurn + 1) % state.players.length;
+    } while (state.players[nextTurn].bankrupt);
+    state.currentTurn = nextTurn;
+    state.doublesRolledThisTurn = 0;
+    state.phase = state.players[nextTurn].inJail ? "JAILED" : "ROLL";
   }
 };
 
@@ -259,6 +287,18 @@ const canSellHouseFrom = (state: GameState, player: Player, tile: OwnableTile) =
   return property.houses === maxHouses;
 };
 
+const canTransferProperty = (state: GameState, player: Player, tileId: TileId) => {
+  const tile = tileById(tileId);
+  if (!isOwnable(tile)) return false;
+  const property = state.properties[tile.id];
+  return property.ownerId === player.id && property.houses === 0;
+};
+
+const sanitizeMoney = (amount: number) => {
+  if (!Number.isFinite(amount)) throw new Error("Trade money must be a finite amount.");
+  return Math.max(0, Math.floor(amount));
+};
+
 export const reduceGame = (inputState: GameState, action: GameAction): EngineResult => {
   const state = cloneState(inputState);
   const events: string[] = [];
@@ -391,11 +431,80 @@ export const reduceGame = (inputState: GameState, action: GameAction): EngineRes
     const tile = tileById(action.tileId);
     if (!isOwnable(tile)) throw new Error("Unknown property.");
     const property = state.properties[tile.id];
-    if (property.ownerId !== player.id || property.houses > 0) throw new Error("Cannot sell this property.");
+    if (property.ownerId !== player.id || property.houses > 0 || property.mortgaged) throw new Error("Cannot sell this property.");
     property.ownerId = null;
     player.ownedPropertyIds = player.ownedPropertyIds.filter((id) => id !== tile.id);
     changeMoney(state, player, Math.floor(tile.price / 2));
     log(state, `${player.name} sold ${tile.label} back to the bank.`, events);
+  }
+
+  if (action.type === "MORTGAGE_PROPERTY") {
+    const tile = tileById(action.tileId);
+    if (!isOwnable(tile)) throw new Error("Unknown property.");
+    const property = state.properties[tile.id];
+    if (property.ownerId !== player.id || property.houses > 0 || property.mortgaged) throw new Error("Cannot mortgage this property.");
+    property.mortgaged = true;
+    changeMoney(state, player, tile.mortgageValue);
+    log(state, `${player.name} mortgaged ${tile.label} for $${tile.mortgageValue}.`, events);
+  }
+
+  if (action.type === "UNMORTGAGE_PROPERTY") {
+    const tile = tileById(action.tileId);
+    if (!isOwnable(tile)) throw new Error("Unknown property.");
+    const property = state.properties[tile.id];
+    const cost = tile.mortgageValue + Math.ceil(tile.mortgageValue * 0.1);
+    if (property.ownerId !== player.id || !property.mortgaged) throw new Error("Cannot unmortgage this property.");
+    if (player.money < cost) throw new Error("Player cannot afford to unmortgage this property.");
+    property.mortgaged = false;
+    changeMoney(state, player, -cost);
+    log(state, `${player.name} unmortgaged ${tile.label} for $${cost}.`, events);
+  }
+
+  if (action.type === "TRADE") {
+    const target = state.players.find((candidate) => candidate.id === action.targetPlayerId);
+    if (!target || target.bankrupt || target.id === player.id) throw new Error("Trade target is not available.");
+    const offerMoney = sanitizeMoney(action.offerMoney);
+    const requestMoney = sanitizeMoney(action.requestMoney);
+    const offerPropertyIds = [...new Set(action.offerPropertyIds)];
+    const requestPropertyIds = [...new Set(action.requestPropertyIds)];
+    if (player.money < offerMoney || target.money < requestMoney) throw new Error("A player cannot afford this trade.");
+    if (!offerPropertyIds.every((tileId) => canTransferProperty(state, player, tileId))) throw new Error("Offered properties cannot be traded.");
+    if (!requestPropertyIds.every((tileId) => canTransferProperty(state, target, tileId))) throw new Error("Requested properties cannot be traded.");
+
+    changeMoney(state, player, -offerMoney);
+    changeMoney(state, target, offerMoney);
+    changeMoney(state, target, -requestMoney);
+    changeMoney(state, player, requestMoney);
+
+    for (const tileId of offerPropertyIds) {
+      state.properties[tileId].ownerId = target.id;
+      player.ownedPropertyIds = player.ownedPropertyIds.filter((id) => id !== tileId);
+      if (!target.ownedPropertyIds.includes(tileId)) target.ownedPropertyIds.push(tileId);
+    }
+    for (const tileId of requestPropertyIds) {
+      state.properties[tileId].ownerId = player.id;
+      target.ownedPropertyIds = target.ownedPropertyIds.filter((id) => id !== tileId);
+      if (!player.ownedPropertyIds.includes(tileId)) player.ownedPropertyIds.push(tileId);
+    }
+    log(state, `${player.name} completed a trade with ${target.name}.`, events);
+  }
+
+  if (action.type === "DECLARE_BANKRUPTCY") {
+    bankruptToBank(state, player);
+    log(state, `${player.name} declared bankruptcy and returned their assets to the bank.`, events);
+  }
+
+  if (action.type === "UPDATE_SETTINGS") {
+    state.settings = {
+      ...state.settings,
+      ...action.settings,
+      startingMoney: Math.max(1, Math.floor(action.settings.startingMoney ?? state.settings.startingMoney)),
+      salary: Math.max(0, Math.floor(action.settings.salary ?? state.settings.salary)),
+      maxJailTurns: Math.max(1, Math.floor(action.settings.maxJailTurns ?? state.settings.maxJailTurns)),
+      bailAmount: Math.max(0, Math.floor(action.settings.bailAmount ?? state.settings.bailAmount)),
+      freeParkingJackpot: action.settings.freeParkingJackpot ?? state.settings.freeParkingJackpot,
+    };
+    log(state, `${player.name} updated game settings.`, events);
   }
 
   if (action.type === "END_TURN") {
@@ -417,3 +526,13 @@ export const getSellableBuildings = (state: GameState, player: Player) =>
   player.ownedPropertyIds
     .map((tileId) => tileById(tileId))
     .filter((tile): tile is OwnableTile => isOwnable(tile) && canSellHouseFrom(state, player, tile));
+
+export const getMortgageableProperties = (state: GameState, player: Player) =>
+  player.ownedPropertyIds
+    .map((tileId) => tileById(tileId))
+    .filter((tile): tile is OwnableTile => isOwnable(tile) && state.properties[tile.id].ownerId === player.id && state.properties[tile.id].houses === 0 && !state.properties[tile.id].mortgaged);
+
+export const getUnmortgageableProperties = (state: GameState, player: Player) =>
+  player.ownedPropertyIds
+    .map((tileId) => tileById(tileId))
+    .filter((tile): tile is OwnableTile => isOwnable(tile) && state.properties[tile.id].ownerId === player.id && state.properties[tile.id].mortgaged);

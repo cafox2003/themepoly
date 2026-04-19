@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { getBuildableProperties, getSellableBuildings, reduceGame } from "../engine/engine";
+import { getBuildableProperties, getMortgageableProperties, getSellableBuildings, getUnmortgageableProperties, reduceGame } from "../engine/engine";
 import { createInitialGameState } from "../engine/state";
-import type { GameAction, GameState, OwnableTile, Player, TileId } from "../engine/types";
+import type { GameAction, GameSettings, GameState, OwnableTile, Player, TileId } from "../engine/types";
 
 interface GameStore {
   state: GameState;
@@ -16,6 +16,12 @@ interface GameStore {
   buyHouse: (tileId: TileId) => void;
   sellHouse: (tileId: TileId) => void;
   sellProperty: (tileId: TileId) => void;
+  mortgageProperty: (tileId: TileId) => void;
+  unmortgageProperty: (tileId: TileId) => void;
+  trade: (trade: Omit<Extract<GameAction, { type: "TRADE" }>, "type" | "playerId">) => void;
+  declareBankruptcy: () => void;
+  updateSettings: (settings: Partial<GameSettings>) => void;
+  loadSnapshotFile: (file: File) => Promise<void>;
   clearError: () => void;
 }
 
@@ -25,6 +31,25 @@ const withCurrentPlayer = (state: GameState, build: (player: Player) => GameActi
   const player = state.players[state.currentTurn];
   if (!player) throw new Error("No current player.");
   return build(player);
+};
+
+const normalizeSnapshot = (value: unknown): GameState => {
+  if (!value || typeof value !== "object") throw new Error("Snapshot must contain an object.");
+  const snapshot = value as GameState;
+  if (snapshot.version !== "1.0" || !Array.isArray(snapshot.players) || !snapshot.properties || !snapshot.settings) {
+    throw new Error("Snapshot is not a valid Themepoly v1 game.");
+  }
+  const initial = createInitialGameState();
+  return {
+    ...initial,
+    ...snapshot,
+    board: initial.board,
+    properties: {
+      ...initial.properties,
+      ...snapshot.properties,
+    },
+    log: Array.isArray(snapshot.log) ? snapshot.log.slice(0, 80) : initial.log,
+  };
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -71,6 +96,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get().state;
     get().dispatch(withCurrentPlayer(state, (player) => ({ type: "SELL_PROPERTY", playerId: player.id, tileId })));
   },
+  mortgageProperty: (tileId) => {
+    const state = get().state;
+    get().dispatch(withCurrentPlayer(state, (player) => ({ type: "MORTGAGE_PROPERTY", playerId: player.id, tileId })));
+  },
+  unmortgageProperty: (tileId) => {
+    const state = get().state;
+    get().dispatch(withCurrentPlayer(state, (player) => ({ type: "UNMORTGAGE_PROPERTY", playerId: player.id, tileId })));
+  },
+  trade: (trade) => {
+    const state = get().state;
+    get().dispatch(withCurrentPlayer(state, (player) => ({ type: "TRADE", playerId: player.id, ...trade })));
+  },
+  declareBankruptcy: () => {
+    const state = get().state;
+    get().dispatch(withCurrentPlayer(state, (player) => ({ type: "DECLARE_BANKRUPTCY", playerId: player.id })));
+  },
+  updateSettings: (settings) => {
+    const state = get().state;
+    get().dispatch(withCurrentPlayer(state, (player) => ({ type: "UPDATE_SETTINGS", playerId: player.id, settings })));
+  },
+  loadSnapshotFile: async (file) => {
+    try {
+      const snapshot = normalizeSnapshot(JSON.parse(await file.text()));
+      set({ state: snapshot, error: null });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Snapshot could not be loaded." });
+    }
+  },
   clearError: () => set({ error: null }),
 }));
 
@@ -82,4 +135,14 @@ export const selectBuildableProperties = (state: GameState): OwnableTile[] => {
 export const selectSellableBuildings = (state: GameState): OwnableTile[] => {
   const player = state.players[state.currentTurn];
   return player ? getSellableBuildings(state, player) : [];
+};
+
+export const selectMortgageableProperties = (state: GameState): OwnableTile[] => {
+  const player = state.players[state.currentTurn];
+  return player ? getMortgageableProperties(state, player) : [];
+};
+
+export const selectUnmortgageableProperties = (state: GameState): OwnableTile[] => {
+  const player = state.players[state.currentTurn];
+  return player ? getUnmortgageableProperties(state, player) : [];
 };

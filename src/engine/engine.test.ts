@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isOwnable, tileById } from "./board";
+import { CHANCE_DECK, COMMUNITY_CHEST_DECK } from "./cards";
 import { reduceGame } from "./engine";
 import type { GameAction, GameState, OwnableTile, TileId } from "./types";
 
@@ -219,5 +220,74 @@ describe("Themepoly engine", () => {
     expect(state.players[0].ownedPropertyIds).toEqual([]);
     expect(state.winnerId).toBe("p2");
     expect(state.phase).toBe("GAME_OVER");
+  });
+
+  it("mortgages and unmortgages undeveloped properties", () => {
+    let state = startGame();
+    setOwner(state, "p1", "BOARDWALK");
+
+    state = act(state, { type: "MORTGAGE_PROPERTY", playerId: "p1", tileId: "BOARDWALK" });
+    expect(state.properties.BOARDWALK.mortgaged).toBe(true);
+    expect(state.players[0].money).toBe(1700);
+
+    state = act(state, { type: "UNMORTGAGE_PROPERTY", playerId: "p1", tileId: "BOARDWALK" });
+    expect(state.properties.BOARDWALK.mortgaged).toBe(false);
+    expect(state.players[0].money).toBe(1480);
+  });
+
+  it("trades money and clear properties between players", () => {
+    let state = startGame();
+    setOwner(state, "p1", "BALTIC_AVENUE");
+    setOwner(state, "p2", "READING_RAILROAD");
+
+    state = act(state, {
+      type: "TRADE",
+      playerId: "p1",
+      targetPlayerId: "p2",
+      offerMoney: 100,
+      requestMoney: 25,
+      offerPropertyIds: ["BALTIC_AVENUE"],
+      requestPropertyIds: ["READING_RAILROAD"],
+    });
+
+    expect(state.players[0].money).toBe(1425);
+    expect(state.players[1].money).toBe(1575);
+    expect(state.properties.BALTIC_AVENUE.ownerId).toBe("p2");
+    expect(state.properties.READING_RAILROAD.ownerId).toBe("p1");
+    expect(state.players[0].ownedPropertyIds).toContain("READING_RAILROAD");
+    expect(state.players[1].ownedPropertyIds).toContain("BALTIC_AVENUE");
+  });
+
+  it("transfers assets to a creditor when rent causes bankruptcy", () => {
+    let state = startGame();
+    setOwner(state, "p1", "BALTIC_AVENUE");
+    setOwner(state, "p2", "BOARDWALK");
+    state.properties.BOARDWALK.houses = 5;
+    state.players[0].money = 10;
+    state.players[0].position = 37;
+
+    state = act(state, { type: "ROLL_DICE", playerId: "p1", dice: [1, 1] });
+
+    expect(state.players[0].bankrupt).toBe(true);
+    expect(state.properties.BALTIC_AVENUE.ownerId).toBe("p2");
+    expect(state.players[1].ownedPropertyIds).toContain("BALTIC_AVENUE");
+    expect(state.winnerId).toBe("p2");
+  });
+
+  it("updates rule settings through an engine action", () => {
+    let state = startGame();
+
+    state = act(state, {
+      type: "UPDATE_SETTINGS",
+      playerId: "p1",
+      settings: { freeParkingJackpot: true, salary: 250, bailAmount: 75, maxJailTurns: 2 },
+    });
+
+    expect(state.settings).toMatchObject({ freeParkingJackpot: true, salary: 250, bailAmount: 75, maxJailTurns: 2 });
+  });
+
+  it("has expanded card decks", () => {
+    expect(CHANCE_DECK).toHaveLength(16);
+    expect(COMMUNITY_CHEST_DECK).toHaveLength(16);
   });
 });

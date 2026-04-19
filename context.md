@@ -10,10 +10,14 @@ The app currently supports:
 - A deterministic, framework-free game engine in `src/engine`.
 - Zustand stores for game state and active theme state.
 - A fixed 40-space property-trading board driven by canonical tile IDs.
-- Theme zip upload through the UI using the `Load theme` button.
+- Theme zip upload through the Themes utility tab.
+- One-click loading for bundled sample themes.
+- Locally persisted theme library using browser storage after a theme is loaded.
 - Theme-controlled labels, colors, board background, token images, and per-space transparent images.
 - Deploy-safe sample theme zips in `public/themes`.
 - Additional theme source packages in `themes/source`.
+- Basic dice and token movement animations.
+- Responsive desktop/tablet/mobile board layout.
 - Engine test coverage through Vitest.
 
 The dev server is normally run with:
@@ -72,10 +76,15 @@ The client currently handles:
 - Player summaries.
 - Turn controls.
 - Buy/build/sell management.
+- Mortgage and unmortgage management.
+- Basic player-to-player trades.
+- Rule settings for starting money, GO salary, bail, holding turns, and Rest Stop jackpot.
+- Save/load game snapshots as JSON files.
 - Game log.
 - Theme upload.
 - Reset to the default theme.
-- Download links for deploy-safe sample themes.
+- Theme selection/import/export through a dedicated Themes utility tab.
+- Local saved-theme selection for previously loaded theme zips.
 
 ### 2.3 Future Server
 
@@ -114,8 +123,11 @@ The current v1 engine supports:
 - Even building rules within a color group.
 - Selling buildings.
 - Selling undeveloped properties back to the bank.
-- Basic bankruptcy and winner detection.
-- Optional Rest Stop jackpot setting in the state model.
+- Mortgaging and unmortgaging undeveloped properties.
+- Basic player-to-player trades involving money and undeveloped or mortgaged deeds.
+- Bankruptcy and winner detection, including transferring assets to a rent creditor or releasing assets to the bank.
+- Optional Rest Stop jackpot rule toggle and settings UI.
+- Save/load JSON game snapshots.
 
 Auctions are intentionally excluded.
 
@@ -123,13 +135,11 @@ Auctions are intentionally excluded.
 
 Known gameplay gaps:
 
-- Bankruptcy handling is simplified.
-- Mortgages are represented in state but no user-facing mortgage/unmortgage flow exists yet.
-- Trading between players is not implemented.
-- Card decks are short placeholder decks.
-- House/hotel rules exist, but UI polish around building management is still basic.
-- Rest Stop jackpot is in state but does not yet have a settings UI.
-- No save/load snapshot UI.
+- Bankruptcy handling does not yet include a full liquidation/payment-choice flow before bankruptcy.
+- Mortgage transfers do not yet charge immediate mortgage interest to a new owner after trades or bankruptcy.
+- Trading is an immediate local agreement flow; there is no offer/accept negotiation or hidden confirmation step.
+- Card decks are expanded placeholder decks, not full official-style deck coverage.
+- House/hotel rules exist, and the UI exposes basic build/sell controls, but deed/detail modals are still absent.
 - No multiplayer.
 - No server.
 
@@ -319,7 +329,11 @@ Current test coverage includes:
 - House rent.
 - Selling buildings.
 - Selling undeveloped properties.
-- Bankruptcy and winner detection.
+- Mortgaging and unmortgaging.
+- Player-to-player trades.
+- Bankruptcy asset transfer and winner detection.
+- Rule settings updates.
+- Expanded card deck size.
 
 Run tests with:
 
@@ -331,17 +345,15 @@ npm test
 
 Near-term gameplay:
 
-- Add mortgage and unmortgage actions/UI.
-- Add player-to-player trades.
-- Improve bankruptcy resolution.
-- Expand card decks.
-- Add settings UI for rule toggles such as Rest Stop jackpot.
-- Add save/load game snapshot support.
-- Improve house/hotel management UI.
+- Add a richer pre-bankruptcy liquidation flow for choosing sales, mortgages, and payments before failure.
+- Add trade offer/accept confirmation if multiplayer or private-device play is introduced.
+- Add deed/detail modals for rent ladders, mortgage terms, owner history, and house/hotel state.
+- Add more nuanced card actions, such as nearest transport/utility movement and repair fees per building.
 
 Near-term theme system:
 
 - Add a theme preview/import confirmation screen.
+- Add saved-theme storage management polish for very large theme libraries.
 - Add richer validation messages with exact failing file paths.
 - Add optional card artwork rendering.
 - Add optional property deed/card artwork rendering.
@@ -359,9 +371,7 @@ Future multiplayer:
 
 Future polish:
 
-- Dice animation.
-- Token movement animation.
-- Better mobile board navigation.
+- Board interaction refinements for small mobile screens.
 - Deed/detail modals.
 - Accessibility pass.
 - Visual regression checks for themes.

@@ -173,7 +173,20 @@ export type GameAction =
   | { type: "USE_GET_OUT_OF_JAIL_CARD"; playerId: string }
   | { type: "BUY_HOUSE"; playerId: string; tileId: TileId }
   | { type: "SELL_HOUSE"; playerId: string; tileId: TileId }
-  | { type: "SELL_PROPERTY"; playerId: string; tileId: TileId };
+  | { type: "SELL_PROPERTY"; playerId: string; tileId: TileId }
+  | { type: "MORTGAGE_PROPERTY"; playerId: string; tileId: TileId }
+  | { type: "UNMORTGAGE_PROPERTY"; playerId: string; tileId: TileId }
+  | {
+      type: "TRADE";
+      playerId: string;
+      targetPlayerId: string;
+      offerMoney: number;
+      requestMoney: number;
+      offerPropertyIds: TileId[];
+      requestPropertyIds: TileId[];
+    }
+  | { type: "DECLARE_BANKRUPTCY"; playerId: string }
+  | { type: "UPDATE_SETTINGS"; playerId: string; settings: Partial<GameSettings> };
 
 export interface EngineResult {
   state: GameState;
