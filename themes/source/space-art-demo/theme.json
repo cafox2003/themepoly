@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "id": "space-art-demo",
+  "name": "Space Art Demo",
+  "images": {
+    "boardBackground": "assets/board/background.png"
+  },
+  "board": {
+    "GO": { "label": "Gallery Gate", "image": "assets/spaces/GO.png" },
+    "COMMUNITY_CHEST_1": { "label": "Sketchbook", "image": "assets/spaces/COMMUNITY_CHEST_1.png" },
+    "INCOME_TAX": { "label": "Studio Rent", "image": "assets/spaces/INCOME_TAX.png" },
+    "CHANCE_1": { "label": "Critique", "image": "assets/spaces/CHANCE_1.png" },
+    "JAIL": { "label": "Storage / Visiting", "image": "assets/spaces/JAIL.png" },
+    "COMMUNITY_CHEST_2": { "label": "Sketchbook", "image": "assets/spaces/COMMUNITY_CHEST_2.png" },
+    "FREE_PARKING": { "label": "Patio Break", "image": "assets/spaces/FREE_PARKING.png" },
+    "CHANCE_2": { "label": "Critique", "image": "assets/spaces/CHANCE_2.png" },
+    "GO_TO_JAIL": { "label": "Wet Paint", "image": "assets/spaces/GO_TO_JAIL.png" },
+    "COMMUNITY_CHEST_3": { "label": "Sketchbook", "image": "assets/spaces/COMMUNITY_CHEST_3.png" },
+    "CHANCE_3": { "label": "Critique", "image": "assets/spaces/CHANCE_3.png" },
+    "LUXURY_TAX": { "label": "Frame Fee", "image": "assets/spaces/LUXURY_TAX.png" }
+  },
+  "properties": {
+    "MEDITERRANEAN_AVENUE": { "name": "Ochre Alcove", "image": "assets/spaces/MEDITERRANEAN_AVENUE.png" },
+    "BALTIC_AVENUE": { "name": "Umber Hall", "image": "assets/spaces/BALTIC_AVENUE.png" },
+    "READING_RAILROAD": { "name": "Rolling Exhibit", "image": "assets/spaces/READING_RAILROAD.png" },
+    "ORIENTAL_AVENUE": { "name": "Cyan Corner", "image": "assets/spaces/ORIENTAL_AVENUE.png" },
+    "VERMONT_AVENUE": { "name": "Blue Wash Room", "image": "assets/spaces/VERMONT_AVENUE.png" },
+    "CONNECTICUT_AVENUE": { "name": "Skyline Studio", "image": "assets/spaces/CONNECTICUT_AVENUE.png" },
+    "ST_CHARLES_PLACE": { "name": "Magenta Loft", "image": "assets/spaces/ST_CHARLES_PLACE.png" },
+    "ELECTRIC_COMPANY": { "name": "Lightbox", "image": "assets/spaces/ELECTRIC_COMPANY.png" },
+    "STATES_AVENUE": { "name": "Rose Gallery", "image": "assets/spaces/STATES_AVENUE.png" },
+    "VIRGINIA_AVENUE": { "name": "Violet Studio", "image": "assets/spaces/VIRGINIA_AVENUE.png" },
+    "PENNSYLVANIA_RAILROAD": { "name": "Freight Frames", "image": "assets/spaces/PENNSYLVANIA_RAILROAD.png" },
+    "ST_JAMES_PLACE": { "name": "Amber Annex", "image": "assets/spaces/ST_JAMES_PLACE.png" },
+    "TENNESSEE_AVENUE": { "name": "Tangerine Hall", "image": "assets/spaces/TENNESSEE_AVENUE.png" },
+    "NEW_YORK_AVENUE": { "name": "Marquee Studio", "image": "assets/spaces/NEW_YORK_AVENUE.png" },
+    "KENTUCKY_AVENUE": { "name": "Crimson Room", "image": "assets/spaces/KENTUCKY_AVENUE.png" },
+    "INDIANA_AVENUE": { "name": "Ruby Workshop", "image": "assets/spaces/INDIANA_AVENUE.png" },
+    "ILLINOIS_AVENUE": { "name": "Signal Gallery", "image": "assets/spaces/ILLINOIS_AVENUE.png" },
+    "B_AND_O_RAILROAD": { "name": "Freight Frames East", "image": "assets/spaces/B_AND_O_RAILROAD.png" },
+    "ATLANTIC_AVENUE": { "name": "Gold Leaf Room", "image": "assets/spaces/ATLANTIC_AVENUE.png" },
+    "VENTNOR_AVENUE": { "name": "Sun Print Studio", "image": "assets/spaces/VENTNOR_AVENUE.png" },
+    "WATER_WORKS": { "name": "Ink Wash", "image": "assets/spaces/WATER_WORKS.png" },
+    "MARVIN_GARDENS": { "name": "Canary Gallery", "image": "assets/spaces/MARVIN_GARDENS.png" },
+    "PACIFIC_AVENUE": { "name": "Greenroom", "image": "assets/spaces/PACIFIC_AVENUE.png" },
+    "NORTH_CAROLINA_AVENUE": { "name": "Moss Studio", "image": "assets/spaces/NORTH_CAROLINA_AVENUE.png" },
+    "PENNSYLVANIA_AVENUE": { "name": "Emerald Hall", "image": "assets/spaces/PENNSYLVANIA_AVENUE.png" },
+    "SHORT_LINE": { "name": "Freight Frames West", "image": "assets/spaces/SHORT_LINE.png" },
+    "PARK_PLACE": { "name": "Indigo Atrium", "image": "assets/spaces/PARK_PLACE.png" },
+    "BOARDWALK": { "name": "Ultramarine Wing", "image": "assets/spaces/BOARDWALK.png" }
+  },
+  "cards": {
+    "chance": [
+      { "text": "A collector sends you to Ultramarine Wing.", "action": { "type": "move_to", "target": "BOARDWALK" } },
+      { "text": "Return to Gallery Gate.", "action": { "type": "move_to", "target": "GO", "collectSalary": true } }
+    ],
+    "communityChest": [
+      { "text": "Grant funding arrives. Collect $200.", "action": { "type": "collect_bank", "amount": 200 } },
+      { "text": "Wet paint closes the hall. Go to storage.", "action": { "type": "go_to_jail" } }
+    ]
+  },
+  "tokens": [
+    { "id": "car", "label": "Camera", "image": "assets/tokens/camera.png", "color": "#e8c15a" },
+    { "id": "ship", "label": "Brush", "image": "assets/tokens/brush.png", "color": "#6ec6ca" },
+    { "id": "hat", "label": "Star", "image": "assets/tokens/star.png", "color": "#513c7b" },
+    { "id": "dog", "label": "Key", "image": "assets/tokens/key.png", "color": "#a14f57" },
+    { "id": "shoe", "label": "Map", "image": "assets/tokens/map.png", "color": "#6e8a4a" },
+    { "id": "iron", "label": "Lamp", "image": "assets/tokens/lamp.png", "color": "#2f557f" }
+  ],
+  "colors": {
+    "APP_BACKGROUND": "#efe7d3",
+    "BOARD_BACKGROUND": "#b7a47c",
+    "BOARD_CENTER": "#d4c096",
+    "TILE_BACKGROUND": "#fff8e8",
+    "PANEL_BACKGROUND": "#fffaf0",
+    "TEXT": "#1f2933",
+    "MUTED_TEXT": "#65717d",
+    "ACCENT": "#2f557f",
+    "ACCENT_CONTRAST": "#fffaf0",
+    "HIGHLIGHT": "#e8c15a",
+    "BROWN": "#7b4b2a",
+    "LIGHT_BLUE": "#6ec6ca",
+    "PINK": "#b75d8a",
+    "ORANGE": "#d2873c",
+    "RED": "#a14f57",
+    "YELLOW": "#e8c15a",
+    "GREEN": "#6e8a4a",
+    "DARK_BLUE": "#2f557f"
+  }
+}
