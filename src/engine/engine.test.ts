@@ -30,7 +30,7 @@ const setOwner = (state: GameState, playerId: string, tileId: TileId) => {
   if (!player.ownedPropertyIds.includes(tileId)) player.ownedPropertyIds.push(tileId);
 };
 
-describe("Monopoly engine", () => {
+describe("Themepoly engine", () => {
   it("starts a serializable game with versioned state and default player money", () => {
     const state = startGame();
 
@@ -108,7 +108,7 @@ describe("Monopoly engine", () => {
     expect(state.players[0].money).toBe(1520);
   });
 
-  it("keeps the same player after doubles and sends them to jail on the third doubles roll", () => {
+  it("keeps the same player after doubles and sends them to holding on the third doubles roll", () => {
     let state = startGame();
 
     state = act(state, { type: "ROLL_DICE", playerId: "p1", dice: [1, 1] });
@@ -125,7 +125,7 @@ describe("Monopoly engine", () => {
     expect(state.phase).toBe("JAILED");
   });
 
-  it("supports jail bail, jail cards, and forced payment after three failed rolls", () => {
+  it("supports holding bail, holding cards, and forced payment after three failed rolls", () => {
     let state = startGame();
     state.players[0].inJail = true;
     state.players[0].position = 10;

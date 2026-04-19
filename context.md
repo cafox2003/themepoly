@@ -1,18 +1,19 @@
-# Monopoly Web App - Project Context
+# Themepoly Project Context
 
 ## 1. Current Status
 
-This project is now a React + TypeScript Monopoly web app with a working v1 pass-and-play game and a v1 theme system.
+Themepoly is a React + TypeScript property-trading board game with a working v1 pass-and-play game and a v1 theme system.
 
 The app currently supports:
 
 - Frontend-only local play on one device.
 - A deterministic, framework-free game engine in `src/engine`.
 - Zustand stores for game state and active theme state.
-- A fixed 40-space Monopoly-style board driven by canonical tile IDs.
+- A fixed 40-space property-trading board driven by canonical tile IDs.
 - Theme zip upload through the UI using the `Load theme` button.
 - Theme-controlled labels, colors, board background, token images, and per-space transparent images.
-- Sample theme zips in `themes/archives`.
+- Deploy-safe sample theme zips in `public/themes`.
+- Additional theme source packages in `themes/source`.
 - Engine test coverage through Vitest.
 
 The dev server is normally run with:
@@ -40,7 +41,7 @@ Location:
 - `src/engine/cards.ts`
 - `src/engine/engine.ts`
 
-The engine is intentionally pure TypeScript with no React dependency. It is designed to be shared with a future authoritative server.
+The engine is pure TypeScript with no React dependency. It is designed to be shared with a future authoritative server.
 
 Engine principles:
 
@@ -48,8 +49,8 @@ Engine principles:
 - Gameplay is processed through high-level `GameAction` objects.
 - Randomness is injected from the outside. The engine does not roll dice itself.
 - Board position is index-based, using a fixed 40-space board.
-- Every board space has a canonical ID, such as `GO`, `BOARDWALK`, `JAIL`, and `FREE_PARKING`.
-- Theme data never changes gameplay logic.
+- Every board space has a stable canonical ID defined in `src/engine/types.ts`.
+- Theme data changes presentation only. It does not change gameplay logic.
 
 ### 2.2 Client
 
@@ -72,7 +73,9 @@ The client currently handles:
 - Turn controls.
 - Buy/build/sell management.
 - Game log.
-- Theme upload and reset to Classic.
+- Theme upload.
+- Reset to the default theme.
+- Download links for deploy-safe sample themes.
 
 ### 2.3 Future Server
 
@@ -98,21 +101,21 @@ The current v1 engine supports:
 - Salary when passing or landing on GO where rules/card action specify it.
 - Property purchasing.
 - Rent payments.
-- Monopoly color-group rent doubling.
-- Railroad rent scaling by owned railroad count.
+- Complete color-group rent bonuses.
+- Railroad-style transport rent scaling by owned transport count.
 - Utility rent based on dice total and owned utility count.
-- Jail.
+- Holding-space flow.
 - Bail payment.
-- Get Out of Jail Free cards.
-- Forced bail after failed jail rolls.
-- Three consecutive doubles sends the player to jail.
-- Chance and Community Chest cards using a fixed safe action vocabulary.
+- Get Out of Holding cards.
+- Forced bail after failed holding rolls.
+- Three consecutive doubles sends the player to holding.
+- Opportunity and Town Fund cards using a fixed safe action vocabulary.
 - Houses and hotels.
 - Even building rules within a color group.
 - Selling buildings.
 - Selling undeveloped properties back to the bank.
 - Basic bankruptcy and winner detection.
-- Optional Free Parking jackpot setting in the state model.
+- Optional Rest Stop jackpot setting in the state model.
 
 Auctions are intentionally excluded.
 
@@ -123,9 +126,9 @@ Known gameplay gaps:
 - Bankruptcy handling is simplified.
 - Mortgages are represented in state but no user-facing mortgage/unmortgage flow exists yet.
 - Trading between players is not implemented.
-- Card decks are short placeholder decks, not full official deck sets.
+- Card decks are short placeholder decks.
 - House/hotel rules exist, but UI polish around building management is still basic.
-- Free Parking jackpot is in state but does not yet have a settings UI.
+- Rest Stop jackpot is in state but does not yet have a settings UI.
 - No save/load snapshot UI.
 - No multiplayer.
 - No server.
@@ -267,31 +270,30 @@ Each board or property entry can include an `image` path.
 
 The UI renders space images as a separate image layer inside each tile. Transparent PNGs are supported. If a transparent image is used, the tile background and color band remain visible underneath it.
 
-This matches the intended style of themed Monopoly boards, where each space can have its own illustration.
-
 ## 6. Included Themes
 
-Theme archives live in:
+Deploy-safe theme archives live in:
 
-- `themes/archives/lord-of-the-rings.zip`
-- `themes/archives/star-wars.zip`
-- `themes/archives/noir-city.zip`
-- `themes/archives/space-art-demo.zip`
+- `public/themes/noir-city.zip`
+- `public/themes/space-art-demo.zip`
 
-Theme sources live in:
+Theme source folders live in:
 
-- `themes/source/lord-of-the-rings`
-- `themes/source/star-wars`
 - `themes/source/noir-city`
 - `themes/source/space-art-demo`
 
-The Lord of the Rings and Star Wars themes use original placeholder art and themed labels/colors. They do not use official franchise images or logos.
+Theme archive build outputs live in:
+
+- `themes/archives/noir-city.zip`
+- `themes/archives/space-art-demo.zip`
+
+Local-only experimental themes can exist on disk, but franchise-specific sources and archives are ignored by Git and should not be committed or deployed.
 
 Asset generation script:
 
 - `scripts/generate-theme-assets.sh`
 
-This script generates placeholder board backgrounds, token images, and transparent per-space images.
+This script generates placeholder board backgrounds, token images, and transparent per-space images for the deploy-safe themes.
 
 ## 7. Testing
 
@@ -306,13 +308,13 @@ Current test coverage includes:
 - Buying unowned properties.
 - Base rent.
 - Complete color-group rent.
-- Railroad rent.
+- Transport rent.
 - Utility rent.
-- Doubles and third-doubles jail behavior.
-- Jail bail.
-- Get Out of Jail Free card use.
-- Forced payment after three failed jail rolls.
-- Chance and Community Chest card actions.
+- Doubles and third-doubles holding behavior.
+- Bail.
+- Get Out of Holding card use.
+- Forced payment after three failed holding rolls.
+- Opportunity and Town Fund card actions.
 - Even house building.
 - House rent.
 - Selling buildings.
@@ -332,8 +334,8 @@ Near-term gameplay:
 - Add mortgage and unmortgage actions/UI.
 - Add player-to-player trades.
 - Improve bankruptcy resolution.
-- Expand Chance and Community Chest decks.
-- Add settings UI for rule toggles such as Free Parking jackpot.
+- Expand card decks.
+- Add settings UI for rule toggles such as Rest Stop jackpot.
 - Add save/load game snapshot support.
 - Improve house/hotel management UI.
 

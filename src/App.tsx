@@ -49,7 +49,7 @@ function SetupPanel() {
     <form className="setup" onSubmit={submit}>
       <div>
         <p className="eyebrow">Local game</p>
-        <h1>Monopoly V1</h1>
+        <h1>Themepoly V1</h1>
       </div>
       <ThemeControls compact />
       <label>
@@ -236,7 +236,7 @@ function TurnControls() {
             Pay $50 bail
           </button>
           <button type="button" disabled={current.getOutOfJailCards === 0} onClick={useJailCard}>
-            Use jail card
+            Use holding card
           </button>
         </div>
       ) : null}
@@ -375,10 +375,10 @@ export default function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">Theme-ready engine</p>
-          <h1>Monopoly V1</h1>
+          <h1>Themepoly V1</h1>
         </div>
         <ThemeControls />
-        <div className="bank-pill">Free Parking ${state.bank.freeParkingPot}</div>
+        <div className="bank-pill">Rest Stop ${state.bank.freeParkingPot}</div>
       </header>
       {winner ? <div className="winner-banner">{winner.name} wins.</div> : null}
       <div className="game-layout">

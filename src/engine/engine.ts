@@ -208,10 +208,10 @@ const resolveLanding = (state: GameState, player: Player, events: string[]) => {
     const jackpot = state.bank.freeParkingPot;
     state.bank.freeParkingPot = 0;
     changeMoney(state, player, jackpot);
-    log(state, `${player.name} collected $${jackpot} from Free Parking.`, events);
+    log(state, `${player.name} collected $${jackpot} from Rest Stop.`, events);
   }
   if (tile.kind === "go_to_jail") {
-    log(state, `${player.name} went to jail.`, events);
+    log(state, `${player.name} went to holding.`, events);
     sendToJail(state, player);
     return;
   }
@@ -286,7 +286,7 @@ export const reduceGame = (inputState: GameState, action: GameAction): EngineRes
         player.inJail = false;
         player.jailTurns = 0;
         movePlayer(state, player, dieA + dieB);
-        log(state, `${player.name} rolled doubles and left jail.`, events);
+        log(state, `${player.name} rolled doubles and left holding.`, events);
         resolveLanding(state, player, events);
       } else {
         player.jailTurns += 1;
@@ -295,11 +295,11 @@ export const reduceGame = (inputState: GameState, action: GameAction): EngineRes
           player.inJail = false;
           player.jailTurns = 0;
           movePlayer(state, player, dieA + dieB);
-          log(state, `${player.name} paid $${state.settings.bailAmount} after three jail turns.`, events);
+          log(state, `${player.name} paid $${state.settings.bailAmount} after three holding turns.`, events);
           resolveLanding(state, player, events);
         } else {
           state.phase = "JAILED";
-          log(state, `${player.name} did not roll doubles in jail.`, events);
+          log(state, `${player.name} did not roll doubles in holding.`, events);
         }
       }
       updateWinner(state);
@@ -309,7 +309,7 @@ export const reduceGame = (inputState: GameState, action: GameAction): EngineRes
     state.doublesRolledThisTurn = isDoubles ? state.doublesRolledThisTurn + 1 : 0;
     if (state.doublesRolledThisTurn >= 3) {
       sendToJail(state, player);
-      log(state, `${player.name} rolled three doubles and went to jail.`, events);
+      log(state, `${player.name} rolled three doubles and went to holding.`, events);
       return { state, events };
     }
 
@@ -333,7 +333,7 @@ export const reduceGame = (inputState: GameState, action: GameAction): EngineRes
   }
 
   if (action.type === "PAY_BAIL") {
-    if (!player.inJail) throw new Error("Player is not in jail.");
+    if (!player.inJail) throw new Error("Player is not in holding.");
     payBank(state, player, state.settings.bailAmount);
     player.inJail = false;
     player.jailTurns = 0;
@@ -342,12 +342,12 @@ export const reduceGame = (inputState: GameState, action: GameAction): EngineRes
   }
 
   if (action.type === "USE_GET_OUT_OF_JAIL_CARD") {
-    if (!player.inJail || player.getOutOfJailCards <= 0) throw new Error("No jail card is available.");
+    if (!player.inJail || player.getOutOfJailCards <= 0) throw new Error("No holding card is available.");
     player.getOutOfJailCards -= 1;
     player.inJail = false;
     player.jailTurns = 0;
     state.phase = "ROLL";
-    log(state, `${player.name} used a Get Out of Jail Free card.`, events);
+    log(state, `${player.name} used a Get Out of Holding card.`, events);
   }
 
   if (action.type === "BUY_HOUSE") {

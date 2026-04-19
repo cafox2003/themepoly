@@ -29,22 +29,6 @@ make_token() {
     "${output}"
 }
 
-make_background themes/source/lord-of-the-rings/assets/board/background.png "#21351f" "#b39a58" "#d4af37" "Middle-earth"
-make_token themes/source/lord-of-the-rings/assets/tokens/ring.png "#d4af37" "#2d210b" "R"
-make_token themes/source/lord-of-the-rings/assets/tokens/tree.png "#f4f0de" "#27472d" "T"
-make_token themes/source/lord-of-the-rings/assets/tokens/hat.png "#4b5563" "#f8f1df" "W"
-make_token themes/source/lord-of-the-rings/assets/tokens/pipe.png "#7a4b2a" "#fff4d6" "P"
-make_token themes/source/lord-of-the-rings/assets/tokens/leaf.png "#3f7f4f" "#fff4d6" "L"
-make_token themes/source/lord-of-the-rings/assets/tokens/axe.png "#8f6f39" "#23180e" "A"
-
-make_background themes/source/star-wars/assets/board/background.png "#070b18" "#172b56" "#ffe65a" "Galaxy"
-make_token themes/source/star-wars/assets/tokens/astromech.png "#d8ecff" "#1d4ed8" "A"
-make_token themes/source/star-wars/assets/tokens/freighter.png "#d6d9de" "#111827" "F"
-make_token themes/source/star-wars/assets/tokens/helmet.png "#111827" "#f8fbff" "H"
-make_token themes/source/star-wars/assets/tokens/saber.png "#0f172a" "#38f27b" "S"
-make_token themes/source/star-wars/assets/tokens/holocron.png "#38bdf8" "#082f49" "K"
-make_token themes/source/star-wars/assets/tokens/comlink.png "#f97316" "#111827" "C"
-
 make_background themes/source/noir-city/assets/board/background.png "#15171d" "#5a4b35" "#d7b95c" "Noir City"
 make_token themes/source/noir-city/assets/tokens/cab.png "#f4c430" "#1f2937" "C"
 make_token themes/source/noir-city/assets/tokens/fedora.png "#2b2d31" "#f7f2e6" "F"
@@ -90,14 +74,4 @@ colors=("#e8c15a" "#7b4b2a" "#6ec6ca" "#7b4b2a" "#a14f57" "#3a4350" "#8fd4ef" "#
 
 for index in "${!ids[@]}"; do
   make_tile_art "themes/source/space-art-demo/assets/spaces/${ids[$index]}.png" "${colors[$index]}" "#fffaf0" "${letters[$index]}"
-done
-
-lotr_letters=(S B C B L E B Q V C J R P F M D L C C F R H Q E M R O D E G M C M C G S Q D T B)
-lotr_colors=("#d4af37" "#6b3f25" "#9fc6c2" "#6b3f25" "#8f2f23" "#8f6f39" "#9fc6c2" "#41633a" "#9fc6c2" "#9fc6c2" "#4b5563" "#8c5b7a" "#24354f" "#8c5b7a" "#8c5b7a" "#8f6f39" "#b8692a" "#9fc6c2" "#b8692a" "#b8692a" "#41633a" "#8f2f23" "#41633a" "#8f2f23" "#8f2f23" "#8f6f39" "#d7b84b" "#d7b84b" "#24354f" "#d7b84b" "#8f2f23" "#375f35" "#375f35" "#9fc6c2" "#375f35" "#8f6f39" "#41633a" "#24354f" "#8f2f23" "#24354f")
-star_letters=(H L H M I F C M B D D E P H I S N H T C R J M S E X J S M Y C M K H V T M D K E)
-star_colors=("#ffe65a" "#6b4a2b" "#38bdf8" "#6b4a2b" "#ef4444" "#d6d9de" "#79d9ff" "#2563eb" "#79d9ff" "#79d9ff" "#111827" "#f472b6" "#f97316" "#f472b6" "#f472b6" "#d6d9de" "#fb923c" "#38bdf8" "#fb923c" "#fb923c" "#22c55e" "#ef4444" "#2563eb" "#ef4444" "#ef4444" "#d6d9de" "#facc15" "#facc15" "#f97316" "#facc15" "#ef4444" "#22c55e" "#22c55e" "#38bdf8" "#22c55e" "#d6d9de" "#2563eb" "#1d4ed8" "#ef4444" "#1d4ed8")
-
-for index in "${!ids[@]}"; do
-  make_tile_art "themes/source/lord-of-the-rings/assets/spaces/${ids[$index]}.png" "${lotr_colors[$index]}" "#fff8df" "${lotr_letters[$index]}"
-  make_tile_art "themes/source/star-wars/assets/spaces/${ids[$index]}.png" "${star_colors[$index]}" "#f8fbff" "${star_letters[$index]}"
 done
