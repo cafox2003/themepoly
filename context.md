@@ -2,11 +2,16 @@
 
 ## 1. Current Status
 
-Themepoly is a React + TypeScript property-trading board game with a working v1 pass-and-play game and a v1 theme system.
+Themepoly is a React + TypeScript property-trading board game with a working v1 pass-and-play game, a v1 theme system, and an initial authoritative multiplayer server slice.
 
 The app currently supports:
 
 - Frontend-only local play on one device.
+- Experimental multiplayer rooms over WebSocket.
+- An authoritative Node.js server that applies shared engine actions and broadcasts full snapshots.
+- Multiplayer player-seat claiming and server-side action ownership enforcement.
+- Multiplayer joiners can choose their own display name when joining a room.
+- Browser-persisted multiplayer client identity for reclaiming the same seat after reconnect.
 - A deterministic, framework-free game engine in `src/engine`.
 - Zustand stores for game state and active theme state.
 - A fixed 40-space property-trading board driven by canonical tile IDs.
@@ -18,12 +23,19 @@ The app currently supports:
 - Additional theme source packages in `themes/source`.
 - Basic dice and token movement animations.
 - Responsive desktop/tablet/mobile board layout.
+- Collapsible right-side gameplay panels to keep the desktop board view compact.
 - Engine test coverage through Vitest.
 
-The dev server is normally run with:
+The frontend dev server is normally run with:
 
 ```bash
 npm run dev
+```
+
+The multiplayer server is run separately with:
+
+```bash
+npm run dev:server
 ```
 
 The project verification commands are:
@@ -66,6 +78,8 @@ Primary files:
 - `src/theme/themeStore.ts`
 - `src/theme/themeLoader.ts`
 - `src/theme/themeUtils.ts`
+- `src/store/multiplayerStore.ts`
+- `src/multiplayer/protocol.ts`
 
 The React UI renders only from current game state and active theme state.
 
@@ -85,20 +99,33 @@ The client currently handles:
 - Reset to the default theme.
 - Theme selection/import/export through a dedicated Themes utility tab.
 - Local saved-theme selection for previously loaded theme zips.
+- Multiplayer host/join controls on the setup screen.
+- Room IDs can be prefilled from a `?room=` URL query.
+- Remote action sending when connected to a multiplayer room.
+- Multiplayer seat-claim UI, including disabled controls when it is another player's turn.
+- Multiplayer status, seat controls, seat counts, disconnect, and room-link copying in the Game utility tab.
 
-### 2.3 Future Server
+### 2.3 Multiplayer Server
 
-The server does not exist yet.
+Primary files:
 
-The intended future architecture is:
+- `server/index.ts`
+- `src/multiplayer/protocol.ts`
+
+The current server is a first-pass authoritative WebSocket server.
+
+Current flow:
 
 1. Client sends actions over WebSocket.
 2. Server validates the action.
-3. Server injects random values, such as dice.
-4. Server applies the shared engine.
-5. Server broadcasts the full updated `GameState` snapshot.
+3. Server verifies that the socket owns the action's player seat.
+4. Server injects random values, such as dice.
+5. Server applies the shared engine.
+6. Server broadcasts the full updated `GameState` snapshot.
 
-No client-side prediction is planned for the first multiplayer version.
+No client-side prediction is implemented.
+
+Clients persist a local browser token in `localStorage` and send it when creating or joining a room. The server maps claimed seats to that token, which lets a reconnecting browser reclaim its previous player seat while the in-memory room still exists. Joining clients may provide a display name; the server applies it to the claimed player and broadcasts the renamed snapshot to the room.
 
 ## 3. Implemented Gameplay
 
@@ -140,8 +167,11 @@ Known gameplay gaps:
 - Trading is an immediate local agreement flow; there is no offer/accept negotiation or hidden confirmation step.
 - Card decks are expanded placeholder decks, not full official-style deck coverage.
 - House/hotel rules exist, and the UI exposes basic build/sell controls, but deed/detail modals are still absent.
-- No multiplayer.
-- No server.
+- Multiplayer is an experimental room-based pass-and-play-over-network slice.
+- Multiplayer room state is in memory only and is lost when the server restarts.
+- Multiplayer reconnect support depends on the same browser's saved local client token and an active in-memory room.
+- Multiplayer does not yet provide private action confirmation.
+- Multiplayer room identity has no authenticated accounts; browsers sharing the same local token can control the same claimed seat.
 
 ## 5. Theme System v1
 
@@ -362,12 +392,11 @@ Near-term theme system:
 
 Future multiplayer:
 
-- Add Node.js server.
-- Add WebSocket action protocol.
-- Move randomness to the server.
-- Make server authoritative.
-- Broadcast full `GameState` snapshots.
-- Add reconnect flow from snapshot.
+- Add durable room storage or snapshot restore for server restarts.
+- Add lobby readiness and room settings before start.
+- Expand reconnect flow with explicit recovery UI and expired-room handling.
+- Add trade offer/accept workflow over multiplayer.
+- Add richer multiplayer presence, including connected/disconnected player indicators.
 
 Future polish:
 

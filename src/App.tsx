@@ -9,6 +9,7 @@ import {
   selectUnmortgageableProperties,
   useGameStore,
 } from "./store/gameStore";
+import { useMultiplayerStore } from "./store/multiplayerStore";
 import { useThemeStore } from "./theme/themeStore";
 import { appThemeStyle, getThemeToken, getTileImage, getTileLabel } from "./theme/themeUtils";
 
@@ -69,17 +70,40 @@ const buildingLabel = (houses: number) => {
 function SetupPanel() {
   const startGame = useGameStore((store) => store.startGame);
   const theme = useThemeStore((store) => store.theme);
+  const multiplayerStatus = useMultiplayerStore((store) => store.status);
+  const multiplayerUrl = useMultiplayerStore((store) => store.url);
+  const multiplayerRoomId = useMultiplayerStore((store) => store.roomId);
+  const multiplayerError = useMultiplayerStore((store) => store.error);
+  const connect = useMultiplayerStore((store) => store.connect);
+  const createRoom = useMultiplayerStore((store) => store.createRoom);
+  const joinRoom = useMultiplayerStore((store) => store.joinRoom);
+  const disconnect = useMultiplayerStore((store) => store.disconnect);
+  const clearMultiplayerError = useMultiplayerStore((store) => store.clearError);
   const [playerCount, setPlayerCount] = useState(2);
   const [names, setNames] = useState(defaultNames);
+  const [serverUrl, setServerUrl] = useState(multiplayerUrl);
+  const [joinRoomId, setJoinRoomId] = useState(() => new URLSearchParams(window.location.search).get("room") ?? "");
+  const [joinPlayerName, setJoinPlayerName] = useState(defaultNames[0]);
+
+  const setupPlayers = () =>
+    names.slice(0, playerCount).map((name, index) => ({
+      name,
+      tokenId: theme.tokens[index % theme.tokens.length].id,
+    }));
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    startGame(
-      names.slice(0, playerCount).map((name, index) => ({
-        name,
-        tokenId: theme.tokens[index % theme.tokens.length].id,
-      })),
-    );
+    startGame(setupPlayers());
+  };
+
+  const hostRoom = async () => {
+    if (multiplayerStatus !== "connected") await connect(serverUrl);
+    createRoom(setupPlayers());
+  };
+
+  const joinExistingRoom = async () => {
+    if (multiplayerStatus !== "connected") await connect(serverUrl);
+    joinRoom(joinRoomId, joinPlayerName);
   };
 
   return (
@@ -121,6 +145,36 @@ function SetupPanel() {
       <button className="primary" type="submit">
         Start game
       </button>
+      <section className="setup-multiplayer">
+        <div>
+          <p className="eyebrow">Multiplayer</p>
+          <strong>{multiplayerStatus === "connected" ? `Connected${multiplayerRoomId ? ` · ${multiplayerRoomId}` : ""}` : "Server connection"}</strong>
+        </div>
+        <label>
+          Server
+          <input value={serverUrl} onChange={(event) => setServerUrl(event.target.value)} />
+        </label>
+        <div className="button-row">
+          <button type="button" onClick={() => void hostRoom()}>
+            Host room
+          </button>
+          <button type="button" disabled={multiplayerStatus === "offline"} onClick={disconnect}>
+            Disconnect
+          </button>
+        </div>
+        <div className="join-row">
+          <input placeholder="Your name" value={joinPlayerName} onChange={(event) => setJoinPlayerName(event.target.value)} />
+          <input placeholder="Room ID" value={joinRoomId} onChange={(event) => setJoinRoomId(event.target.value)} />
+          <button type="button" disabled={!joinRoomId.trim() || !joinPlayerName.trim()} onClick={() => void joinExistingRoom()}>
+            Join
+          </button>
+        </div>
+        {multiplayerError ? (
+          <button type="button" className="error" onClick={clearMultiplayerError}>
+            {multiplayerError}
+          </button>
+        ) : null}
+      </section>
     </form>
   );
 }
@@ -299,6 +353,8 @@ function TurnControls() {
   const mortgageProperty = useGameStore((store) => store.mortgageProperty);
   const unmortgageProperty = useGameStore((store) => store.unmortgageProperty);
   const declareBankruptcy = useGameStore((store) => store.declareBankruptcy);
+  const multiplayerStatus = useMultiplayerStore((store) => store.status);
+  const claimedPlayerId = useMultiplayerStore((store) => store.claimedPlayerId);
 
   const current = state.players[state.currentTurn];
   const currentTile = current ? tileAt(current.position) : null;
@@ -316,6 +372,8 @@ function TurnControls() {
 
   if (!current) return null;
 
+  const remoteBlocked = multiplayerStatus === "connected" && current.id !== claimedPlayerId;
+
   const hasManagement =
     buildable.length > 0 ||
     sellableBuildings.length > 0 ||
@@ -324,13 +382,14 @@ function TurnControls() {
     sellableProperties.length > 0;
 
   return (
-    <aside className="panel actions-panel">
+    <details className="panel actions-panel collapsible-panel" open>
+      <summary>Actions</summary>
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Actions</p>
           <h2>{current.name}</h2>
         </div>
-        <button type="button" className="danger-button compact-danger" onClick={declareBankruptcy}>
+        <button type="button" className="danger-button compact-danger" disabled={remoteBlocked} onClick={declareBankruptcy}>
           Bankrupt
         </button>
       </div>
@@ -339,26 +398,27 @@ function TurnControls() {
           {error}
         </button>
       ) : null}
+      {remoteBlocked ? <p className="turn-lock">Waiting for {current.name}'s controller.</p> : null}
       <div className="button-row">
-        <button type="button" className="primary" disabled={state.phase !== "ROLL" && state.phase !== "JAILED"} onClick={rollDice}>
+        <button type="button" className="primary" disabled={remoteBlocked || (state.phase !== "ROLL" && state.phase !== "JAILED")} onClick={rollDice}>
           Roll dice
         </button>
-        <button type="button" disabled={state.phase === "ROLL" || state.phase === "GAME_OVER"} onClick={endTurn}>
+        <button type="button" disabled={remoteBlocked || state.phase === "ROLL" || state.phase === "GAME_OVER"} onClick={endTurn}>
           {willRollAgain ? "Roll again" : "End turn"}
         </button>
       </div>
       {current.inJail ? (
         <div className="jail-actions">
-          <button type="button" onClick={payBail}>
+          <button type="button" disabled={remoteBlocked} onClick={payBail}>
             Pay $50 bail
           </button>
-          <button type="button" disabled={current.getOutOfJailCards === 0} onClick={useJailCard}>
+          <button type="button" disabled={remoteBlocked || current.getOutOfJailCards === 0} onClick={useJailCard}>
             Use holding card
           </button>
         </div>
       ) : null}
       {canBuy && isOwnable(currentTile) ? (
-        <button type="button" className="buy-button" onClick={buyProperty}>
+        <button type="button" className="buy-button" disabled={remoteBlocked} onClick={buyProperty}>
           Buy {getTileLabel(theme, currentTile)} for ${currentTile.price}
         </button>
       ) : null}
@@ -371,33 +431,34 @@ function TurnControls() {
               tile={tile}
               actionLabel={`Buy $${tile.houseCost}`}
               detail={state.properties[tile.id].houses === 4 ? "Next: hotel" : "Next: house"}
+              disabled={remoteBlocked}
               onAction={() => buyHouse(tile.id)}
             />
           ))}
         </ManagementList>
         <ManagementList title="Sell Buildings" empty="No buildings can be sold.">
           {sellableBuildings.map((tile) => (
-            <PropertyCard key={tile.id} tile={tile} actionLabel={`Sell $${Math.floor((tile.houseCost ?? 0) / 2)}`} onAction={() => sellHouse(tile.id)} />
+            <PropertyCard key={tile.id} tile={tile} actionLabel={`Sell $${Math.floor((tile.houseCost ?? 0) / 2)}`} disabled={remoteBlocked} onAction={() => sellHouse(tile.id)} />
           ))}
         </ManagementList>
         <ManagementList title="Mortgage" empty="No clear properties can be mortgaged.">
           {mortgageable.map((tile) => (
-            <PropertyCard key={tile.id} tile={tile} actionLabel={`Get $${tile.mortgageValue}`} onAction={() => mortgageProperty(tile.id)} />
+            <PropertyCard key={tile.id} tile={tile} actionLabel={`Get $${tile.mortgageValue}`} disabled={remoteBlocked} onAction={() => mortgageProperty(tile.id)} />
           ))}
         </ManagementList>
         <ManagementList title="Unmortgage" empty="No mortgaged properties.">
           {unmortgageable.map((tile) => {
             const cost = tile.mortgageValue + Math.ceil(tile.mortgageValue * 0.1);
-            return <PropertyCard key={tile.id} tile={tile} actionLabel={`Pay $${cost}`} disabled={current.money < cost} onAction={() => unmortgageProperty(tile.id)} />;
+            return <PropertyCard key={tile.id} tile={tile} actionLabel={`Pay $${cost}`} disabled={remoteBlocked || current.money < cost} onAction={() => unmortgageProperty(tile.id)} />;
           })}
         </ManagementList>
         <ManagementList title="Sell Properties" empty="No undeveloped properties.">
           {sellableProperties.map((tile) => (
-            <PropertyCard key={tile.id} tile={tile} actionLabel={`Sell $${Math.floor(tile.price / 2)}`} onAction={() => sellProperty(tile.id)} />
+            <PropertyCard key={tile.id} tile={tile} actionLabel={`Sell $${Math.floor(tile.price / 2)}`} disabled={remoteBlocked} onAction={() => sellProperty(tile.id)} />
           ))}
         </ManagementList>
       </details>
-    </aside>
+    </details>
   );
 }
 
@@ -414,9 +475,10 @@ function ManagementList({ title, empty, children }: { title: string; empty: stri
 function PlayersPanel() {
   const state = useGameStore((store) => store.state);
   const theme = useThemeStore((store) => store.theme);
+  const claimedPlayerId = useMultiplayerStore((store) => store.claimedPlayerId);
   return (
-    <aside className="panel players-panel">
-      <p className="eyebrow">Players</p>
+    <details className="panel players-panel collapsible-panel" open>
+      <summary>Players</summary>
       {state.players.map((player, index) => {
         const token = getThemeToken(theme, player);
         const positionTile = tileAt(player.position);
@@ -430,10 +492,90 @@ function PlayersPanel() {
               </span>
             </div>
             <small>{player.ownedPropertyIds.length} deeds</small>
+            {claimedPlayerId === player.id ? <small className="seat-mark">You</small> : null}
           </div>
         );
       })}
-    </aside>
+    </details>
+  );
+}
+
+function MultiplayerStatusPanel() {
+  const status = useMultiplayerStore((store) => store.status);
+  const roomId = useMultiplayerStore((store) => store.roomId);
+  const claimedPlayerId = useMultiplayerStore((store) => store.claimedPlayerId);
+  const seats = useMultiplayerStore((store) => store.seats);
+  const error = useMultiplayerStore((store) => store.error);
+  const claimPlayer = useMultiplayerStore((store) => store.claimPlayer);
+  const disconnect = useMultiplayerStore((store) => store.disconnect);
+  const clearError = useMultiplayerStore((store) => store.clearError);
+  const players = useGameStore((store) => store.state.players);
+  const claimedPlayer = players.find((player) => player.id === claimedPlayerId);
+  const claimedSeatCount = players.filter((player) => Boolean(seats[player.id])).length;
+  const [copied, setCopied] = useState(false);
+
+  const copyRoom = async () => {
+    if (!roomId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("room", roomId);
+    const copyWithInput = () => {
+      const input = document.createElement("textarea");
+      input.value = url.toString();
+      document.body.append(input);
+      input.select();
+      document.execCommand("copy");
+      input.remove();
+    };
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(url.toString());
+      } catch {
+        copyWithInput();
+      }
+    } else {
+      copyWithInput();
+    }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  };
+
+  return (
+    <section className="multiplayer-status">
+      <div>
+        <strong>{status === "connected" ? "Multiplayer connected" : "Multiplayer"}</strong>
+        {roomId ? <span>Room {roomId}</span> : null}
+        {claimedPlayer ? <span>You control {claimedPlayer.name}</span> : status === "connected" ? <span>Claim a player seat</span> : <span>Offline</span>}
+        {status === "connected" ? <span>{claimedSeatCount} of {players.length} seats claimed</span> : null}
+      </div>
+      {status === "connected" ? (
+        <div className="multiplayer-actions">
+          <button type="button" disabled={!roomId} onClick={() => void copyRoom()}>
+            {copied ? "Copied" : "Copy room"}
+          </button>
+          <button type="button" onClick={disconnect}>
+            Disconnect
+          </button>
+        </div>
+      ) : null}
+      {status === "connected" ? (
+        <div className="seat-claim-list">
+          {players.map((player) => {
+            const occupant = seats[player.id];
+            const isMine = player.id === claimedPlayerId;
+            return (
+              <button type="button" disabled={(Boolean(occupant) && !isMine) || player.bankrupt} className={isMine ? "active" : ""} key={player.id} onClick={() => claimPlayer(player.id, player.name)}>
+                {isMine ? `${player.name} (you)` : occupant ? `${player.name} (taken)` : player.name}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      {error ? (
+        <button type="button" className="theme-error" onClick={clearError}>
+          {error}
+        </button>
+      ) : null}
+    </section>
   );
 }
 
@@ -631,27 +773,30 @@ function GameFilesPanel() {
 
   return (
     <aside className="panel utility-panel">
-      <div>
-        <p className="eyebrow">Save</p>
-        <h2>Game State</h2>
-      </div>
-      <div className="button-row">
-        <button type="button" onClick={downloadSnapshot}>
-          Save game
-        </button>
-        <label className="file-button">
-          Load game
-          <input
-            accept="application/json,.json"
-            type="file"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void loadSnapshotFile(file);
-              event.currentTarget.value = "";
-            }}
-          />
-        </label>
-      </div>
+      <section className="file-tools">
+        <div>
+          <p className="eyebrow">Game</p>
+          <h2>Save & Multiplayer</h2>
+        </div>
+        <div className="button-row">
+          <button type="button" onClick={downloadSnapshot}>
+            Save game
+          </button>
+          <label className="file-button">
+            Load game
+            <input
+              accept="application/json,.json"
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void loadSnapshotFile(file);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+        </div>
+      </section>
+      <MultiplayerStatusPanel />
     </aside>
   );
 }
@@ -750,7 +895,8 @@ function UtilityTabs() {
   const [activeTab, setActiveTab] = useState<"trade" | "settings" | "save" | "themes">("trade");
 
   return (
-    <section className="utility-tabs">
+    <details className="utility-tabs collapsible-panel" open>
+      <summary>Tools</summary>
       <div className="tab-list" role="tablist" aria-label="Game utilities">
         <button type="button" className={activeTab === "trade" ? "active" : ""} onClick={() => setActiveTab("trade")}>
           Trade
@@ -759,7 +905,7 @@ function UtilityTabs() {
           Rules
         </button>
         <button type="button" className={activeTab === "save" ? "active" : ""} onClick={() => setActiveTab("save")}>
-          Save
+          Game
         </button>
         <button type="button" className={activeTab === "themes" ? "active" : ""} onClick={() => setActiveTab("themes")}>
           Themes
@@ -771,7 +917,7 @@ function UtilityTabs() {
         {activeTab === "save" ? <GameFilesPanel /> : null}
         {activeTab === "themes" ? <ThemesPanel /> : null}
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -783,7 +929,7 @@ function ThemeName() {
 function LogPanel() {
   const log = useGameStore((store) => store.state.log);
   return (
-    <details className="log-panel">
+    <details className="log-panel collapsible-panel">
       <summary>Game log</summary>
       <ol>
         {log.map((entry) => (

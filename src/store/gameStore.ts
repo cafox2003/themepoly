@@ -6,7 +6,10 @@ import type { GameAction, GameSettings, GameState, OwnableTile, Player, TileId }
 interface GameStore {
   state: GameState;
   error: string | null;
+  remoteActionSender: ((action: GameAction) => boolean) | null;
   dispatch: (action: GameAction) => void;
+  replaceState: (state: GameState) => void;
+  setRemoteActionSender: (sender: ((action: GameAction) => boolean) | null) => void;
   startGame: (players: Array<{ name: string; tokenId: string }>) => void;
   rollDice: () => void;
   buyProperty: () => void;
@@ -55,7 +58,12 @@ const normalizeSnapshot = (value: unknown): GameState => {
 export const useGameStore = create<GameStore>((set, get) => ({
   state: createInitialGameState(),
   error: null,
+  remoteActionSender: null,
   dispatch: (action) => {
+    if (action.type !== "START_GAME" && get().remoteActionSender?.(action)) {
+      set({ error: null });
+      return;
+    }
     try {
       const result = reduceGame(get().state, action);
       set({ state: result.state, error: null });
@@ -63,6 +71,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ error: error instanceof Error ? error.message : "Unknown game error." });
     }
   },
+  replaceState: (state) => set({ state, error: null }),
+  setRemoteActionSender: (sender) => set({ remoteActionSender: sender }),
   startGame: (players) => get().dispatch({ type: "START_GAME", players }),
   rollDice: () => {
     const state = get().state;
