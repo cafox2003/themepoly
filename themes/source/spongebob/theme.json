@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "id": "spongebob",
+  "name": "SpongeBob",
+  "images": {},
+  "board": {
+    "GO": { "label": "Conch Street" },
+    "COMMUNITY_CHEST_1": { "label": "Treasure Chest" },
+    "INCOME_TAX": { "label": "Krabby Bill" },
+    "CHANCE_1": { "label": "Bubble Card" },
+    "JAIL": { "label": "Boating School / Visiting" },
+    "COMMUNITY_CHEST_2": { "label": "Treasure Chest" },
+    "FREE_PARKING": { "label": "Jellyfish Break" },
+    "CHANCE_2": { "label": "Bubble Card" },
+    "GO_TO_JAIL": { "label": "Boating Test" },
+    "COMMUNITY_CHEST_3": { "label": "Treasure Chest" },
+    "CHANCE_3": { "label": "Bubble Card" },
+    "LUXURY_TAX": { "label": "Fancy Living" }
+  },
+  "properties": {
+    "MEDITERRANEAN_AVENUE": { "name": "Pineapple House" },
+    "BALTIC_AVENUE": { "name": "Rock House" },
+    "READING_RAILROAD": { "name": "Boating Lane" },
+    "ORIENTAL_AVENUE": { "name": "Squidward's Place" },
+    "VERMONT_AVENUE": { "name": "Clarinet Corner" },
+    "CONNECTICUT_AVENUE": { "name": "Bikini Bottom Mall" },
+    "ST_CHARLES_PLACE": { "name": "Krusty Krab" },
+    "ELECTRIC_COMPANY": { "name": "Bikini Power" },
+    "STATES_AVENUE": { "name": "Fry Cook Station" },
+    "VIRGINIA_AVENUE": { "name": "Secret Formula Vault" },
+    "PENNSYLVANIA_RAILROAD": { "name": "Bus Stop" },
+    "ST_JAMES_PLACE": { "name": "Chum Bucket" },
+    "TENNESSEE_AVENUE": { "name": "Plankton Lab" },
+    "NEW_YORK_AVENUE": { "name": "Karen Console" },
+    "KENTUCKY_AVENUE": { "name": "Sandy Dome" },
+    "INDIANA_AVENUE": { "name": "Karate Island" },
+    "ILLINOIS_AVENUE": { "name": "Goo Lagoon" },
+    "B_AND_O_RAILROAD": { "name": "Jellyfish Trail" },
+    "ATLANTIC_AVENUE": { "name": "Glove World" },
+    "VENTNOR_AVENUE": { "name": "Mermalair" },
+    "WATER_WORKS": { "name": "Lagoon Pump" },
+    "MARVIN_GARDENS": { "name": "Shell City" },
+    "PACIFIC_AVENUE": { "name": "Bubble Bowl" },
+    "NORTH_CAROLINA_AVENUE": { "name": "Flying Dutchman Ship" },
+    "PENNSYLVANIA_AVENUE": { "name": "King Neptune Court" },
+    "SHORT_LINE": { "name": "Bikini Bus" },
+    "PARK_PLACE": { "name": "Kelp Forest" },
+    "BOARDWALK": { "name": "Krusty Krab 2" }
+  },
+  "cards": {
+    "chance": [
+      { "text": "A bubble blast sends you to Krusty Krab 2.", "action": { "type": "move_to", "target": "BOARDWALK" } },
+      { "text": "Return to Conch Street and collect your paycheck.", "action": { "type": "move_to", "target": "GO", "collectSalary": true } },
+      { "text": "Fail your boating test. Go to boating school.", "action": { "type": "go_to_jail" } }
+    ],
+    "communityChest": [
+      { "text": "A Krabby Patty rush pays off. Collect $200.", "action": { "type": "collect_bank", "amount": 200 } },
+      { "text": "Replace a spatula. Pay $50.", "action": { "type": "pay_bank", "amount": 50 } },
+      { "text": "Keep a hall pass from boating school.", "action": { "type": "get_out_of_jail_card" } }
+    ]
+  },
+  "tokens": [
+    { "id": "car", "label": "Spatula", "color": "#f7d038" },
+    { "id": "ship", "label": "Pineapple", "color": "#f28c28" },
+    { "id": "hat", "label": "Jellyfish", "color": "#d84a9a" },
+    { "id": "dog", "label": "Snail", "color": "#5bc0de" },
+    { "id": "shoe", "label": "Krabby Patty", "color": "#7b4b2a" },
+    { "id": "iron", "label": "Bubble", "color": "#2364aa" }
+  ],
+  "colors": {
+    "APP_BACKGROUND": "#bfefff",
+    "BOARD_BACKGROUND": "#72d6d6",
+    "BOARD_CENTER": "#f8e27c",
+    "TILE_BACKGROUND": "#fffbe6",
+    "PANEL_BACKGROUND": "#ffffff",
+    "TEXT": "#183247",
+    "MUTED_TEXT": "#536675",
+    "ACCENT": "#2364aa",
+    "ACCENT_CONTRAST": "#ffffff",
+    "HIGHLIGHT": "#f7d038",
+    "BROWN": "#8f5f2a",
+    "LIGHT_BLUE": "#5bc0de",
+    "PINK": "#d84a9a",
+    "ORANGE": "#f28c28",
+    "RED": "#d62828",
+    "YELLOW": "#f7d038",
+    "GREEN": "#3b9b58",
+    "DARK_BLUE": "#2364aa"
+  }
+}

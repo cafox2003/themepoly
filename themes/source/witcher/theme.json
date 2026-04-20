@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "id": "witcher",
+  "name": "Witcher",
+  "images": {},
+  "board": {
+    "GO": { "label": "Kaer Morhen" },
+    "COMMUNITY_CHEST_1": { "label": "Contract Board" },
+    "INCOME_TAX": { "label": "Crown Levy" },
+    "CHANCE_1": { "label": "Omen" },
+    "JAIL": { "label": "Dungeon / Visiting" },
+    "COMMUNITY_CHEST_2": { "label": "Contract Board" },
+    "FREE_PARKING": { "label": "Campfire Rest" },
+    "CHANCE_2": { "label": "Omen" },
+    "GO_TO_JAIL": { "label": "Captured" },
+    "COMMUNITY_CHEST_3": { "label": "Contract Board" },
+    "CHANCE_3": { "label": "Omen" },
+    "LUXURY_TAX": { "label": "Royal Banquet" }
+  },
+  "properties": {
+    "MEDITERRANEAN_AVENUE": { "name": "White Orchard" },
+    "BALTIC_AVENUE": { "name": "Crow's Perch" },
+    "READING_RAILROAD": { "name": "Road to Velen" },
+    "ORIENTAL_AVENUE": { "name": "Oxenfurt Gate" },
+    "VERMONT_AVENUE": { "name": "Novigrad Docks" },
+    "CONNECTICUT_AVENUE": { "name": "Temple Isle" },
+    "ST_CHARLES_PLACE": { "name": "Skellige Harbor" },
+    "ELECTRIC_COMPANY": { "name": "Sign Circle" },
+    "STATES_AVENUE": { "name": "Kaer Trolde" },
+    "VIRGINIA_AVENUE": { "name": "Isle of Mists" },
+    "PENNSYLVANIA_RAILROAD": { "name": "Merchant Road" },
+    "ST_JAMES_PLACE": { "name": "Toussaint Vineyard" },
+    "TENNESSEE_AVENUE": { "name": "Beauclair Square" },
+    "NEW_YORK_AVENUE": { "name": "Duchess Court" },
+    "KENTUCKY_AVENUE": { "name": "Monster Den" },
+    "INDIANA_AVENUE": { "name": "Griffin Nest" },
+    "ILLINOIS_AVENUE": { "name": "Leshen Grove" },
+    "B_AND_O_RAILROAD": { "name": "Fast Travel Post" },
+    "ATLANTIC_AVENUE": { "name": "Wolven Keep" },
+    "VENTNOR_AVENUE": { "name": "Manticore Lab" },
+    "WATER_WORKS": { "name": "Potion Spring" },
+    "MARVIN_GARDENS": { "name": "Aerondight Lake" },
+    "PACIFIC_AVENUE": { "name": "Ciri's Trail" },
+    "NORTH_CAROLINA_AVENUE": { "name": "Wild Hunt Gate" },
+    "PENNSYLVANIA_AVENUE": { "name": "Elder Tower" },
+    "SHORT_LINE": { "name": "Roach Trail" },
+    "PARK_PLACE": { "name": "Wolf School" },
+    "BOARDWALK": { "name": "The Continent" }
+  },
+  "cards": {
+    "chance": [
+      { "text": "Destiny calls you across The Continent.", "action": { "type": "move_to", "target": "BOARDWALK" } },
+      { "text": "Return to Kaer Morhen.", "action": { "type": "move_to", "target": "GO", "collectSalary": true } },
+      { "text": "You are captured by guards.", "action": { "type": "go_to_jail" } }
+    ],
+    "communityChest": [
+      { "text": "Finish a monster contract. Collect $200.", "action": { "type": "collect_bank", "amount": 200 } },
+      { "text": "Buy alchemy supplies. Pay $50.", "action": { "type": "pay_bank", "amount": 50 } },
+      { "text": "Keep a pardon writ.", "action": { "type": "get_out_of_jail_card" } }
+    ]
+  },
+  "tokens": [
+    { "id": "car", "label": "Wolf Medallion", "color": "#c0c7cf" },
+    { "id": "ship", "label": "Silver Sword", "color": "#7b8794" },
+    { "id": "hat", "label": "Roach", "color": "#8f5f2a" },
+    { "id": "dog", "label": "Swallow", "color": "#3c9d4f" },
+    { "id": "shoe", "label": "Igni", "color": "#d24b2a" },
+    { "id": "iron", "label": "Crown", "color": "#d7b95c" }
+  ],
+  "colors": {
+    "APP_BACKGROUND": "#20231f",
+    "BOARD_BACKGROUND": "#3b4035",
+    "BOARD_CENTER": "#4a503f",
+    "TILE_BACKGROUND": "#efe7d2",
+    "PANEL_BACKGROUND": "#f7f0df",
+    "TEXT": "#171914",
+    "MUTED_TEXT": "#5c604e",
+    "ACCENT": "#6d1f1d",
+    "ACCENT_CONTRAST": "#fff8e8",
+    "HIGHLIGHT": "#d7b95c",
+    "BROWN": "#6a4630",
+    "LIGHT_BLUE": "#8fb5c6",
+    "PINK": "#9b607a",
+    "ORANGE": "#c26a2d",
+    "RED": "#9c2f2f",
+    "YELLOW": "#d7b95c",
+    "GREEN": "#526f3d",
+    "DARK_BLUE": "#2c3f59"
+  }
+}

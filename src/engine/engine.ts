@@ -314,6 +314,16 @@ export const reduceGame = (inputState: GameState, action: GameAction): EngineRes
 
   const player = assertPlayerTurn(state, action.playerId);
 
+  if (action.type === "ROLL_AGAIN") {
+    const willRollAgain = !player.inJail && state.dice[0] !== 0 && state.dice[0] === state.dice[1] && state.doublesRolledThisTurn > 0;
+    if (!willRollAgain) throw new Error("Player can only roll again after doubles.");
+    log(state, `${player.name} rolls again after doubles.`, events);
+    endTurn(state);
+    if (state.currentTurn !== inputState.currentTurn || state.phase !== "ROLL") return { state, events };
+    const result = reduceGame(state, { type: "ROLL_DICE", playerId: player.id, dice: action.dice });
+    return { state: result.state, events: [...events, ...result.events] };
+  }
+
   if (action.type === "ROLL_DICE") {
     if (state.phase !== "ROLL" && state.phase !== "JAILED") throw new Error("Dice can only be rolled at the start of a turn.");
     state.dice = action.dice;

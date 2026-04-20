@@ -92,6 +92,12 @@ const confirmDisconnect = (disconnect: () => void) => {
   }
 };
 
+const rollForFirst = <T,>(players: T[]) =>
+  players
+    .map((player, index) => ({ player, index, roll: Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 2 }))
+    .sort((a, b) => b.roll - a.roll || a.index - b.index)
+    .map((entry) => entry.player);
+
 function SetupPanel() {
   const startGame = useGameStore((store) => store.startGame);
   const theme = useThemeStore((store) => store.theme);
@@ -110,6 +116,8 @@ function SetupPanel() {
   const [joinRoomId, setJoinRoomId] = useState(() => new URLSearchParams(window.location.search).get("room") ?? "");
   const [joinPlayerName, setJoinPlayerName] = useState(defaultNames[0]);
   const [tokenIds, setTokenIds] = useState(() => defaultNames.map((_, index) => theme.tokens[index % theme.tokens.length].id));
+  const [multiplayerTokenId, setMultiplayerTokenId] = useState(() => theme.tokens[0]?.id ?? "car");
+  const [setupMode, setSetupMode] = useState<"single" | "multi">("single");
 
   const setupPlayers = (firstPlayerName?: string) =>
     names.slice(0, playerCount).map((name, index) => ({
@@ -117,14 +125,32 @@ function SetupPanel() {
       tokenId: tokenIds[index] ?? theme.tokens[index % theme.tokens.length].id,
     }));
 
+  const multiplayerPlayers = () => {
+    const hostName = joinPlayerName.trim() || defaultNames[0];
+    const hostToken = theme.tokens.some((token) => token.id === multiplayerTokenId) ? multiplayerTokenId : theme.tokens[0]?.id ?? "car";
+    return Array.from({ length: playerCount }, (_, index) => ({
+      name: index === 0 ? hostName : `Open Seat ${index + 1}`,
+      tokenId: index === 0 ? hostToken : theme.tokens[index % theme.tokens.length].id,
+    }));
+  };
+
+  useEffect(() => {
+    if (!theme.tokens.some((token) => token.id === multiplayerTokenId)) {
+      setMultiplayerTokenId(theme.tokens[0]?.id ?? "car");
+    }
+    setTokenIds((current) => current.map((tokenId, index) => (
+      theme.tokens.some((token) => token.id === tokenId) ? tokenId : theme.tokens[index % theme.tokens.length].id
+    )));
+  }, [multiplayerTokenId, theme.tokens]);
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    startGame(setupPlayers());
+    startGame(rollForFirst(setupPlayers()));
   };
 
   const hostRoom = async () => {
     if (multiplayerStatus !== "connected") await connect(serverUrl);
-    createRoom(setupPlayers(joinPlayerName));
+    createRoom(rollForFirst(multiplayerPlayers()));
   };
 
   const joinExistingRoom = async () => {
@@ -138,56 +164,72 @@ function SetupPanel() {
         <p className="eyebrow">Local game</p>
         <h1>Themepoly V1</h1>
       </div>
-      <ThemeName />
-      <label>
-        Players
-        <select value={playerCount} onChange={(event) => setPlayerCount(Number(event.target.value))}>
-          {[2, 3, 4, 5, 6].map((count) => (
-            <option key={count} value={count}>
-              {count}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="setup-grid">
-        {Array.from({ length: playerCount }, (_, index) => {
-          const tokenId = tokenIds[index] ?? theme.tokens[index % theme.tokens.length].id;
-          const token = theme.tokens.find((candidate) => candidate.id === tokenId) ?? theme.tokens[index % theme.tokens.length];
-          return (
-            <label key={index}>
-              <span className="token-dot" style={{ background: token.color }} />
-              Name
-              <input
-                value={names[index]}
-                onChange={(event) => {
-                  const next = [...names];
-                  next[index] = event.target.value;
-                  setNames(next);
-                }}
-              />
-              Pawn
-              <select
-                value={token.id}
-                onChange={(event) => {
-                  const next = [...tokenIds];
-                  next[index] = event.target.value;
-                  setTokenIds(next);
-                }}
-              >
-                {theme.tokens.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          );
-        })}
+      <section className="setup-theme-tools panel">
+        <ThemeLibraryContent compact />
+      </section>
+      <div className="mode-picker" role="tablist" aria-label="Game mode">
+        <button type="button" className={setupMode === "single" ? "active" : ""} onClick={() => setSetupMode("single")}>
+          Singleplayer
+        </button>
+        <button type="button" className={setupMode === "multi" ? "active" : ""} onClick={() => setSetupMode("multi")}>
+          Multiplayer
+        </button>
       </div>
-      <button className="primary" type="submit">
-        Start game
-      </button>
-      <section className="setup-multiplayer">
+      {setupMode === "single" ? (
+        <>
+          <label>
+            Players
+            <select value={playerCount} onChange={(event) => setPlayerCount(Number(event.target.value))}>
+              {[2, 3, 4, 5, 6].map((count) => (
+                <option key={count} value={count}>
+                  {count}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="setup-grid">
+            {Array.from({ length: playerCount }, (_, index) => {
+              const tokenId = tokenIds[index] ?? theme.tokens[index % theme.tokens.length].id;
+              const token = theme.tokens.find((candidate) => candidate.id === tokenId) ?? theme.tokens[index % theme.tokens.length];
+              return (
+                <label key={index}>
+                  <span className="token-dot" style={{ background: token.color }} />
+                  Name
+                  <input
+                    value={names[index]}
+                    onChange={(event) => {
+                      const next = [...names];
+                      next[index] = event.target.value;
+                      setNames(next);
+                    }}
+                  />
+                  Pawn
+                  <select
+                    value={token.id}
+                    onChange={(event) => {
+                      const next = [...tokenIds];
+                      next[index] = event.target.value;
+                      setTokenIds(next);
+                    }}
+                  >
+                    {theme.tokens.map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {candidate.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
+      {setupMode === "single" ? (
+        <button className="primary" type="submit">
+          Start game
+        </button>
+      ) : null}
+      {setupMode === "multi" ? <section className="setup-multiplayer">
         <div>
           <p className="eyebrow">Multiplayer</p>
           <strong>{multiplayerStatus === "connected" ? `Connected${multiplayerRoomId ? ` · ${multiplayerRoomId}` : ""}` : "Server connection"}</strong>
@@ -196,6 +238,22 @@ function SetupPanel() {
           Server
           <input value={serverUrl} onChange={(event) => setServerUrl(event.target.value)} />
         </label>
+        <div className="multiplayer-identity">
+          <label>
+            Your name
+            <input value={joinPlayerName} onChange={(event) => setJoinPlayerName(event.target.value)} />
+          </label>
+          <label>
+            Pawn
+            <select value={multiplayerTokenId} onChange={(event) => setMultiplayerTokenId(event.target.value)}>
+              {theme.tokens.map((token) => (
+                <option key={token.id} value={token.id}>
+                  {token.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="button-row">
           <button type="button" onClick={() => void hostRoom()}>
             Host room
@@ -205,7 +263,6 @@ function SetupPanel() {
           </button>
         </div>
         <div className="join-row">
-          <input placeholder="Your name" value={joinPlayerName} onChange={(event) => setJoinPlayerName(event.target.value)} />
           <input placeholder="Room ID" value={joinRoomId} onChange={(event) => setJoinRoomId(event.target.value)} />
           <button type="button" disabled={!joinRoomId.trim() || !joinPlayerName.trim()} onClick={() => void joinExistingRoom()}>
             Join
@@ -216,7 +273,7 @@ function SetupPanel() {
             {multiplayerError}
           </button>
         ) : null}
-      </section>
+      </section> : null}
     </form>
   );
 }
@@ -267,7 +324,7 @@ function BoardTileView({ tile }: { tile: BoardTile }) {
         </span>
         {isOwnable(tile) ? <span className="tile-price">${tile.price}</span> : null}
         {property?.houses ? <BuildingMark houses={property.houses} /> : null}
-        {property?.mortgaged ? <span className="mortgage-mark">Mortgaged</span> : null}
+        {property?.mortgaged ? <span className="mortgage-mark" title="Mortgaged">Mtg</span> : null}
         {jailedHere.length ? <span className="jail-mark">Holding: {jailedHere.map((player) => player.name).join(", ")}</span> : null}
         {visitingHere.length ? <span className="visit-mark">Visiting</span> : null}
       </div>
@@ -453,8 +510,9 @@ function TurnControls() {
   const willRollAgain = state.dice[0] !== 0 && state.dice[0] === state.dice[1] && state.doublesRolledThisTurn > 0 && !current.inJail;
   const mustResolveDebt = current.money < 0;
   const canRollNow = state.phase === "ROLL" || state.phase === "JAILED";
-  const rollButtonLabel = willRollAgain && state.phase !== "ROLL" ? "Roll again" : "Roll dice";
-  const rollButtonAction = willRollAgain && state.phase !== "ROLL" ? rollAgain : rollDice;
+  const turnButtonLabel = canRollNow ? "Roll dice" : willRollAgain ? "Roll again" : "End turn";
+  const turnButtonAction = canRollNow ? rollDice : willRollAgain ? rollAgain : endTurn;
+  const turnButtonDisabled = remoteBlocked || state.phase === "GAME_OVER" || (!canRollNow && !willRollAgain && mustResolveDebt);
 
   return (
     <details className="panel actions-panel collapsible-panel" open>
@@ -476,11 +534,8 @@ function TurnControls() {
       {remoteBlocked ? <p className="turn-lock">It is {current.name}'s turn.</p> : null}
       {mustResolveDebt ? <p className="debt-warning">Sell or mortgage assets to get back to $0 before ending the turn.</p> : null}
       <div className="button-row">
-        <button type="button" className="primary" disabled={remoteBlocked || (!canRollNow && !willRollAgain)} onClick={rollButtonAction}>
-          {rollButtonLabel}
-        </button>
-        <button type="button" disabled={remoteBlocked || mustResolveDebt || willRollAgain || state.phase === "ROLL" || state.phase === "JAILED" || state.phase === "GAME_OVER"} onClick={endTurn}>
-          End turn
+        <button type="button" className="primary turn-action-button" disabled={turnButtonDisabled} onClick={turnButtonAction}>
+          {turnButtonLabel}
         </button>
       </div>
       {current.inJail ? (
@@ -929,7 +984,7 @@ function GameFilesPanel() {
   );
 }
 
-function ThemesPanel() {
+function ThemeLibraryContent({ compact = false }: { compact?: boolean }) {
   const theme = useThemeStore((store) => store.theme);
   const themeError = useThemeStore((store) => store.error);
   const themeSourceFile = useThemeStore((store) => store.sourceFile);
@@ -959,10 +1014,10 @@ function ThemesPanel() {
   };
 
   return (
-    <aside className="panel utility-panel">
+    <>
       <div>
         <p className="eyebrow">Themes</p>
-        <h2>Theme Library</h2>
+        <h2>{compact ? theme.name : "Theme Library"}</h2>
       </div>
       <div className="button-row">
         <label className="file-button">
@@ -1015,6 +1070,14 @@ function ThemesPanel() {
           {themeError}
         </button>
       ) : null}
+    </>
+  );
+}
+
+function ThemesPanel() {
+  return (
+    <aside className="panel utility-panel">
+      <ThemeLibraryContent />
     </aside>
   );
 }

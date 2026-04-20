@@ -126,6 +126,18 @@ describe("Themepoly engine", () => {
     expect(state.phase).toBe("JAILED");
   });
 
+  it("rolls again from one action after doubles", () => {
+    let state = startGame();
+
+    state = act(state, { type: "ROLL_DICE", playerId: "p1", dice: [2, 2] });
+    state = act(state, { type: "ROLL_AGAIN", playerId: "p1", dice: [2, 3] });
+
+    expect(state.currentTurn).toBe(0);
+    expect(state.players[0].position).toBe(9);
+    expect(state.phase).toBe("BUY_OR_MANAGE");
+    expect(state.doublesRolledThisTurn).toBe(0);
+  });
+
   it("supports holding bail, holding cards, and forced payment after three failed rolls", () => {
     let state = startGame();
     state.players[0].inJail = true;

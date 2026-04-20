@@ -80,14 +80,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().dispatch(withCurrentPlayer(state, (player) => ({ type: "ROLL_DICE", playerId: player.id, dice: [randomDie(), randomDie()] })));
   },
   rollAgain: () => {
-    const before = get().state;
-    const player = before.players[before.currentTurn];
-    if (!player) return;
-    get().dispatch({ type: "END_TURN", playerId: player.id });
-    const after = get().state;
-    if (after.currentTurn === before.currentTurn && after.phase === "ROLL") {
-      get().dispatch(withCurrentPlayer(after, (current) => ({ type: "ROLL_DICE", playerId: current.id, dice: [randomDie(), randomDie()] })));
-    }
+    const state = get().state;
+    get().dispatch(withCurrentPlayer(state, (player) => ({ type: "ROLL_AGAIN", playerId: player.id, dice: [randomDie(), randomDie()] })));
   },
   buyProperty: () => {
     const state = get().state;

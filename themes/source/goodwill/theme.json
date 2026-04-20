@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "id": "goodwill",
+  "name": "Goodwill",
+  "images": {},
+  "board": {
+    "GO": { "label": "Donation Drop" },
+    "COMMUNITY_CHEST_1": { "label": "Treasure Bin" },
+    "INCOME_TAX": { "label": "Sorting Fee" },
+    "CHANCE_1": { "label": "Thrift Find" },
+    "JAIL": { "label": "Back Room / Visiting" },
+    "COMMUNITY_CHEST_2": { "label": "Treasure Bin" },
+    "FREE_PARKING": { "label": "Community Break" },
+    "CHANCE_2": { "label": "Thrift Find" },
+    "GO_TO_JAIL": { "label": "Inventory Hold" },
+    "COMMUNITY_CHEST_3": { "label": "Treasure Bin" },
+    "CHANCE_3": { "label": "Thrift Find" },
+    "LUXURY_TAX": { "label": "Boutique Tag" }
+  },
+  "properties": {
+    "MEDITERRANEAN_AVENUE": { "name": "Book Nook" },
+    "BALTIC_AVENUE": { "name": "Puzzle Shelf" },
+    "READING_RAILROAD": { "name": "Donation Truck" },
+    "ORIENTAL_AVENUE": { "name": "Kitchenware Row" },
+    "VERMONT_AVENUE": { "name": "Mug Wall" },
+    "CONNECTICUT_AVENUE": { "name": "Lamp Corner" },
+    "ST_CHARLES_PLACE": { "name": "Denim Rack" },
+    "ELECTRIC_COMPANY": { "name": "Testing Outlet" },
+    "STATES_AVENUE": { "name": "Jacket Aisle" },
+    "VIRGINIA_AVENUE": { "name": "Vintage Rack" },
+    "PENNSYLVANIA_RAILROAD": { "name": "Pickup Route" },
+    "ST_JAMES_PLACE": { "name": "Toy Bin" },
+    "TENNESSEE_AVENUE": { "name": "Board Game Shelf" },
+    "NEW_YORK_AVENUE": { "name": "Collectibles Case" },
+    "KENTUCKY_AVENUE": { "name": "Furniture Bay" },
+    "INDIANA_AVENUE": { "name": "Chair Stack" },
+    "ILLINOIS_AVENUE": { "name": "Couch Corner" },
+    "B_AND_O_RAILROAD": { "name": "Blue Cart Lane" },
+    "ATLANTIC_AVENUE": { "name": "Boutique Finds" },
+    "VENTNOR_AVENUE": { "name": "Jewelry Counter" },
+    "WATER_WORKS": { "name": "Laundry Sink" },
+    "MARVIN_GARDENS": { "name": "Glassware Case" },
+    "PACIFIC_AVENUE": { "name": "Outlet Center" },
+    "NORTH_CAROLINA_AVENUE": { "name": "Auction Pallet" },
+    "PENNSYLVANIA_AVENUE": { "name": "Online Store" },
+    "SHORT_LINE": { "name": "Register Line" },
+    "PARK_PLACE": { "name": "Rare Find Wall" },
+    "BOARDWALK": { "name": "Community Impact Center" }
+  },
+  "cards": {
+    "chance": [
+      { "text": "A rare find sends you to Community Impact Center.", "action": { "type": "move_to", "target": "BOARDWALK" } },
+      { "text": "Return to Donation Drop.", "action": { "type": "move_to", "target": "GO", "collectSalary": true } },
+      { "text": "Inventory audit. Go to the back room.", "action": { "type": "go_to_jail" } }
+    ],
+    "communityChest": [
+      { "text": "Community grant arrives. Collect $200.", "action": { "type": "collect_bank", "amount": 200 } },
+      { "text": "Repair donated goods. Pay $50.", "action": { "type": "pay_bank", "amount": 50 } },
+      { "text": "Keep a volunteer badge.", "action": { "type": "get_out_of_jail_card" } }
+    ]
+  },
+  "tokens": [
+    { "id": "car", "label": "Blue Cart", "color": "#005fcc" },
+    { "id": "ship", "label": "Donation Bag", "color": "#3c9d4f" },
+    { "id": "hat", "label": "Price Tag", "color": "#f2c230" },
+    { "id": "dog", "label": "Book", "color": "#7b4b2a" },
+    { "id": "shoe", "label": "Lamp", "color": "#6b7280" },
+    { "id": "iron", "label": "Heart", "color": "#d62828" }
+  ],
+  "colors": {
+    "APP_BACKGROUND": "#eef6ff",
+    "BOARD_BACKGROUND": "#c9dff5",
+    "BOARD_CENTER": "#deecfa",
+    "TILE_BACKGROUND": "#ffffff",
+    "PANEL_BACKGROUND": "#ffffff",
+    "TEXT": "#172033",
+    "MUTED_TEXT": "#566274",
+    "ACCENT": "#005fcc",
+    "ACCENT_CONTRAST": "#ffffff",
+    "HIGHLIGHT": "#f2c230",
+    "BROWN": "#8f5f2a",
+    "LIGHT_BLUE": "#7cc9e8",
+    "PINK": "#d45b95",
+    "ORANGE": "#f28c28",
+    "RED": "#d62828",
+    "YELLOW": "#f2c230",
+    "GREEN": "#3c9d4f",
+    "DARK_BLUE": "#005fcc"
+  }
+}

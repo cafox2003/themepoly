@@ -80,6 +80,8 @@ button:disabled {
   border: 2px solid var(--text, #17201a);
   border-radius: 8px;
   background: var(--panel-bg, #ffffff);
+  display: grid;
+  gap: 20px;
   padding: 28px;
   box-shadow: 10px 10px 0 var(--text, #17201a);
 }
@@ -123,21 +125,45 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
-  margin: 20px 0;
+  margin: 0;
 }
 
 .setup-multiplayer {
   border-top: 1px solid #d4dacd;
   display: grid;
+  gap: 14px;
+  padding-top: 18px;
+}
+
+.setup-theme-tools {
+  align-content: start;
+  gap: 14px;
+}
+
+.mode-picker {
+  display: grid;
   gap: 10px;
-  margin-top: 18px;
-  padding-top: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mode-picker button {
+  font-weight: 900;
+}
+
+.mode-picker button.active {
+  background: var(--highlight, #f7d038);
 }
 
 .join-row {
   display: grid;
   gap: 8px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.multiplayer-identity {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 0.55fr);
 }
 
 .topbar {
@@ -648,6 +674,10 @@ button:disabled {
   grid-template-columns: 1fr 1fr;
 }
 
+.button-row:has(.turn-action-button) {
+  grid-template-columns: 1fr;
+}
+
 .buy-button {
   background: var(--highlight, #f7d038);
   font-weight: 900;
@@ -1063,7 +1093,7 @@ button:disabled {
 }
 
 .default-theme-row {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
 }
 
 .theme-library {
@@ -1238,6 +1268,10 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .multiplayer-identity {
+    grid-template-columns: 1fr;
+  }
+
   .multiplayer-status {
     grid-template-columns: 1fr;
   }
@@ -1274,6 +1308,7 @@ button:disabled {
   }
 
   .tile-price,
+  .mortgage-mark,
   .building-mark {
     font-size: 0.44rem;
   }

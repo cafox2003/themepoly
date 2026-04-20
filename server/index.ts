@@ -99,7 +99,7 @@ const claimFirstOpenPlayer = (room: Room, client: Client, playerName?: string) =
 };
 
 const actionWithServerRandomness = (state: GameState, action: GameAction): GameAction => {
-  if (action.type !== "ROLL_DICE") return action;
+  if (action.type !== "ROLL_DICE" && action.type !== "ROLL_AGAIN") return action;
   const player = state.players[state.currentTurn];
   return {
     ...action,

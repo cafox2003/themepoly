@@ -88,10 +88,20 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
         socket = null;
         const wasIntentional = intentionalClose;
         intentionalClose = false;
+        const previousRoomId = get().roomId;
+        const previousPlayerName = useGameStore.getState().state.players.find((player) => player.id === get().claimedPlayerId)?.name ?? "Player";
         set({
           status: "offline",
           error: wasIntentional ? null : "Connection lost. Reconnect to the room with this browser to reclaim your player.",
         });
+        if (!wasIntentional && previousRoomId) {
+          window.setTimeout(() => {
+            if (get().status !== "offline") return;
+            get().connect(get().url)
+              .then(() => get().joinRoom(previousRoomId, previousPlayerName))
+              .catch(() => undefined);
+          }, 1400);
+        }
       };
       socket.onmessage = (event) => {
         const message = JSON.parse(event.data) as ServerMessage;

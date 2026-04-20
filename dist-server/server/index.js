@@ -77,7 +77,7 @@ const claimFirstOpenPlayer = (room, client, playerName) => {
     }
 };
 const actionWithServerRandomness = (state, action) => {
-    if (action.type !== "ROLL_DICE")
+    if (action.type !== "ROLL_DICE" && action.type !== "ROLL_AGAIN")
         return action;
     const player = state.players[state.currentTurn];
     return {
@@ -94,6 +94,13 @@ const parseMessage = (raw) => {
 };
 const actionPlayerId = (action) => ("playerId" in action ? action.playerId : null);
 const attachClient = (room, socket, token) => {
+    const existingClient = clientsBySocket.get(socket);
+    if (existingClient) {
+        const existingRoom = rooms.get(existingClient.roomId);
+        existingRoom?.clients.delete(existingClient.id);
+        if (existingRoom)
+            broadcastSeats(existingRoom);
+    }
     const client = { id: randomId("client"), token, roomId: room.id, playerId: null, socket };
     room.clients.set(client.id, client);
     clientsBySocket.set(socket, client);
@@ -149,6 +156,19 @@ const applyAction = (socket, message) => {
     room.state = result.state;
     broadcastState(room, result.events);
 };
+const rematchRoom = (socket, message) => {
+    const client = clientsBySocket.get(socket);
+    const room = rooms.get(message.roomId);
+    if (!client || !room || client.roomId !== room.id)
+        throw new Error("Room not found.");
+    if (!client.playerId)
+        throw new Error("Claim a player before starting a rematch.");
+    const players = room.state.players.map((player) => ({ name: player.name, tokenId: player.tokenId }));
+    const result = (0, engine_1.reduceGame)(room.state, { type: "START_GAME", players });
+    room.state = result.state;
+    broadcastState(room, result.events);
+    broadcastSeats(room);
+};
 const server = (0, node_http_1.createServer)((_request, response) => {
     response.writeHead(200, { "Content-Type": "application/json" });
     response.end(JSON.stringify({ ok: true, service: "themepoly-multiplayer" }));
@@ -166,6 +186,8 @@ wss.on("connection", (socket) => {
                 claimSeat(socket, message);
             if (message.type === "ACTION")
                 applyAction(socket, message);
+            if (message.type === "REMATCH")
+                rematchRoom(socket, message);
         }
         catch (error) {
             send(socket, { type: "ERROR", message: error instanceof Error ? error.message : "Multiplayer error." });

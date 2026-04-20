@@ -27,14 +27,10 @@ const payBank = (state, player, amount) => {
     changeMoney(state, player, -amount);
     if (state.settings.freeParkingJackpot)
         state.bank.freeParkingPot += amount;
-    if (player.money < 0)
-        bankruptToBank(state, player);
 };
 const transferMoney = (state, from, to, amount) => {
     changeMoney(state, from, -amount);
     changeMoney(state, to, amount);
-    if (from.money < 0)
-        bankruptToPlayer(state, from, to);
 };
 const releaseProperties = (state, playerId) => {
     for (const property of Object.values(state.properties)) {
@@ -88,6 +84,8 @@ const endTurn = (state) => {
     if (state.phase === "GAME_OVER")
         return;
     const player = currentPlayer(state);
+    if (player.money < 0)
+        throw new Error("Resolve negative money before ending the turn.");
     const rolledDoubles = state.dice[0] !== 0 && state.dice[0] === state.dice[1];
     if (!player.inJail && rolledDoubles && state.doublesRolledThisTurn > 0) {
         state.phase = "ROLL";
@@ -291,6 +289,17 @@ const reduceGame = (inputState, action) => {
         return { state: next, events: next.log.map((entry) => entry.message) };
     }
     const player = assertPlayerTurn(state, action.playerId);
+    if (action.type === "ROLL_AGAIN") {
+        const willRollAgain = !player.inJail && state.dice[0] !== 0 && state.dice[0] === state.dice[1] && state.doublesRolledThisTurn > 0;
+        if (!willRollAgain)
+            throw new Error("Player can only roll again after doubles.");
+        log(state, `${player.name} rolls again after doubles.`, events);
+        endTurn(state);
+        if (state.currentTurn !== inputState.currentTurn || state.phase !== "ROLL")
+            return { state, events };
+        const result = (0, exports.reduceGame)(state, { type: "ROLL_DICE", playerId: player.id, dice: action.dice });
+        return { state: result.state, events: [...events, ...result.events] };
+    }
     if (action.type === "ROLL_DICE") {
         if (state.phase !== "ROLL" && state.phase !== "JAILED")
             throw new Error("Dice can only be rolled at the start of a turn.");
@@ -316,7 +325,7 @@ const reduceGame = (inputState, action) => {
                     resolveLanding(state, player, events);
                 }
                 else {
-                    state.phase = "JAILED";
+                    state.phase = "BUY_OR_MANAGE";
                     log(state, `${player.name} did not roll doubles in holding.`, events);
                 }
             }

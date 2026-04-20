@@ -167,6 +167,7 @@ export interface CardDefinition {
 export type GameAction =
   | { type: "START_GAME"; players: Array<{ name: string; tokenId: string }> }
   | { type: "ROLL_DICE"; playerId: string; dice: [number, number] }
+  | { type: "ROLL_AGAIN"; playerId: string; dice: [number, number] }
   | { type: "BUY_PROPERTY"; playerId: string }
   | { type: "END_TURN"; playerId: string }
   | { type: "PAY_BAIL"; playerId: string }
