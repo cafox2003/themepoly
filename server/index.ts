@@ -117,6 +117,12 @@ const parseMessage = (raw: RawData): ClientMessage => {
 const actionPlayerId = (action: GameAction) => ("playerId" in action ? action.playerId : null);
 
 const attachClient = (room: Room, socket: WebSocket, token: string) => {
+  const existingClient = clientsBySocket.get(socket);
+  if (existingClient) {
+    const existingRoom = rooms.get(existingClient.roomId);
+    existingRoom?.clients.delete(existingClient.id);
+    if (existingRoom) broadcastSeats(existingRoom);
+  }
   const client: Client = { id: randomId("client"), token, roomId: room.id, playerId: null, socket };
   room.clients.set(client.id, client);
   clientsBySocket.set(socket, client);
@@ -172,6 +178,18 @@ const applyAction = (socket: WebSocket, message: Extract<ClientMessage, { type: 
   broadcastState(room, result.events);
 };
 
+const rematchRoom = (socket: WebSocket, message: Extract<ClientMessage, { type: "REMATCH" }>) => {
+  const client = clientsBySocket.get(socket);
+  const room = rooms.get(message.roomId);
+  if (!client || !room || client.roomId !== room.id) throw new Error("Room not found.");
+  if (!client.playerId) throw new Error("Claim a player before starting a rematch.");
+  const players = room.state.players.map((player) => ({ name: player.name, tokenId: player.tokenId }));
+  const result = reduceGame(room.state, { type: "START_GAME", players });
+  room.state = result.state;
+  broadcastState(room, result.events);
+  broadcastSeats(room);
+};
+
 const server = createServer((_request, response) => {
   response.writeHead(200, { "Content-Type": "application/json" });
   response.end(JSON.stringify({ ok: true, service: "themepoly-multiplayer" }));
@@ -187,6 +205,7 @@ wss.on("connection", (socket) => {
       if (message.type === "JOIN_ROOM") joinRoom(socket, message);
       if (message.type === "CLAIM_PLAYER") claimSeat(socket, message);
       if (message.type === "ACTION") applyAction(socket, message);
+      if (message.type === "REMATCH") rematchRoom(socket, message);
     } catch (error) {
       send(socket, { type: "ERROR", message: error instanceof Error ? error.message : "Multiplayer error." });
     }

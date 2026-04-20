@@ -12,6 +12,7 @@ interface GameStore {
   setRemoteActionSender: (sender: ((action: GameAction) => boolean) | null) => void;
   startGame: (players: Array<{ name: string; tokenId: string }>) => void;
   rollDice: () => void;
+  rollAgain: () => void;
   buyProperty: () => void;
   endTurn: () => void;
   payBail: () => void;
@@ -77,6 +78,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   rollDice: () => {
     const state = get().state;
     get().dispatch(withCurrentPlayer(state, (player) => ({ type: "ROLL_DICE", playerId: player.id, dice: [randomDie(), randomDie()] })));
+  },
+  rollAgain: () => {
+    const before = get().state;
+    const player = before.players[before.currentTurn];
+    if (!player) return;
+    get().dispatch({ type: "END_TURN", playerId: player.id });
+    const after = get().state;
+    if (after.currentTurn === before.currentTurn && after.phase === "ROLL") {
+      get().dispatch(withCurrentPlayer(after, (current) => ({ type: "ROLL_DICE", playerId: current.id, dice: [randomDie(), randomDie()] })));
+    }
   },
   buyProperty: () => {
     const state = get().state;

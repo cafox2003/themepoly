@@ -331,13 +331,38 @@ button:disabled {
 }
 
 .building-mark,
-.mortgage-mark {
+.mortgage-mark,
+.jail-mark,
+.visit-mark {
   color: #8a4d00;
   font-weight: 800;
 }
 
 .mortgage-mark {
   color: #7d1d1d;
+}
+
+.jail-mark,
+.visit-mark {
+  border-radius: 999px;
+  font-size: 0.54rem;
+  line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 2px 4px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jail-mark {
+  background: #2f2f35;
+  color: #ffffff;
+}
+
+.visit-mark {
+  background: #ffffff;
+  border: 1px dashed var(--text, #17201a);
+  color: var(--text, #17201a);
 }
 
 .house-icons {
@@ -787,11 +812,42 @@ button:disabled {
 }
 
 .money-delta.positive {
-  background: #1f8f4d;
+  background: #005fcc;
 }
 
 .money-delta.negative {
-  background: #d62828;
+  background: #c24f00;
+}
+
+.money-flash-layer {
+  display: grid;
+  gap: 8px;
+  left: 50%;
+  pointer-events: none;
+  position: fixed;
+  top: 48%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+}
+
+.money-flash {
+  animation: money-pop 1300ms ease forwards;
+  border: 2px solid #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  color: #ffffff;
+  font-size: 1.35rem;
+  font-weight: 950;
+  padding: 10px 14px;
+  text-align: center;
+}
+
+.money-flash.gain {
+  background: #005fcc;
+}
+
+.money-flash.loss {
+  background: #c24f00;
 }
 
 .seat-mark {
@@ -1316,5 +1372,27 @@ button:disabled {
   100% {
     opacity: 1;
     transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes money-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+
+  18% {
+    opacity: 1;
+    transform: translateY(0) scale(1.04);
+  }
+
+  72% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.98);
   }
 }

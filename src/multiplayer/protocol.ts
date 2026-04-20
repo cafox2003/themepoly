@@ -24,6 +24,10 @@ export type ClientMessage =
       type: "ACTION";
       roomId: string;
       action: GameAction;
+    }
+  | {
+      type: "REMATCH";
+      roomId: string;
     };
 
 export type ServerMessage =

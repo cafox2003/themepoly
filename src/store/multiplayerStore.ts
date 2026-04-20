@@ -19,11 +19,13 @@ interface MultiplayerStore {
   createRoom: (players: Array<{ name: string; tokenId: string }>) => void;
   joinRoom: (roomId: string, playerName: string) => void;
   claimPlayer: (playerId: string, playerName?: string) => void;
+  rematchRoom: () => void;
   sendAction: (action: GameAction) => boolean;
   clearError: () => void;
 }
 
 let socket: WebSocket | null = null;
+let intentionalClose = false;
 const clientTokenKey = "themepoly-client-token";
 
 const randomToken = () => {
@@ -63,7 +65,11 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   error: null,
   connect: (url) =>
     new Promise((resolve, reject) => {
-      if (socket) socket.close();
+      if (socket) {
+        intentionalClose = true;
+        socket.close();
+      }
+      intentionalClose = false;
       set({ status: "connecting", url, error: null });
       socket = new WebSocket(url);
 
@@ -79,7 +85,13 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       };
       socket.onclose = () => {
         useGameStore.getState().setRemoteActionSender(null);
-        set({ status: "offline" });
+        socket = null;
+        const wasIntentional = intentionalClose;
+        intentionalClose = false;
+        set({
+          status: "offline",
+          error: wasIntentional ? null : "Connection lost. Reconnect to the room with this browser to reclaim your player.",
+        });
       };
       socket.onmessage = (event) => {
         const message = JSON.parse(event.data) as ServerMessage;
@@ -103,10 +115,11 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       };
     }),
   disconnect: () => {
+    intentionalClose = true;
     socket?.close();
     socket = null;
     useGameStore.getState().setRemoteActionSender(null);
-    set({ status: "offline", roomId: "", clientId: "", claimedPlayerId: null, seats: {} });
+    set({ status: "offline", roomId: "", clientId: "", claimedPlayerId: null, seats: {}, error: null });
   },
   createRoom: (players) => {
     try {
@@ -128,6 +141,14 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       send({ type: "CLAIM_PLAYER", roomId, playerId, playerName });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Could not claim player." });
+    }
+  },
+  rematchRoom: () => {
+    const roomId = get().roomId;
+    try {
+      send({ type: "REMATCH", roomId });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Could not start rematch." });
     }
   },
   sendAction: (action) => {
