@@ -193,13 +193,14 @@ function BoardTileView({ tile }: { tile: BoardTile }) {
   const state = useGameStore((store) => store.state);
   const theme = useThemeStore((store) => store.theme);
   const owner = isOwnable(tile) ? state.players.find((player) => player.id === state.properties[tile.id].ownerId) : null;
+  const ownerToken = owner ? getThemeToken(theme, owner) : null;
   const property = isOwnable(tile) ? state.properties[tile.id] : null;
   const color = groupColor(tile, theme);
   const tileImage = getTileImage(theme, tile);
   const label = getTileLabel(theme, tile);
 
   return (
-    <section className={`tile tile-${tile.kind}`} style={gridAreaForIndex(tile.index)}>
+    <section className={`tile tile-${tile.kind} ${owner ? "tile-owned" : ""}`} style={gridAreaForIndex(tile.index)}>
       {tileImage ? <img className="tile-art" src={tileImage} alt="" /> : null}
       {color ? <span className="color-band" style={{ background: color }} /> : null}
       <div className="tile-copy">
@@ -209,10 +210,15 @@ function BoardTileView({ tile }: { tile: BoardTile }) {
           ))}
         </span>
         {isOwnable(tile) ? <span className="tile-price">${tile.price}</span> : null}
-        {owner ? <span className="owner-mark">{owner.name}</span> : null}
         {property?.houses ? <span className="building-mark">{buildingLabel(property.houses)}</span> : null}
         {property?.mortgaged ? <span className="mortgage-mark">Mortgaged</span> : null}
       </div>
+      {owner && ownerToken ? (
+        <span className="owner-mark" title={`Owned by ${owner.name}`} style={{ "--owner-color": ownerToken.color } as React.CSSProperties}>
+          <span className="owner-dot" aria-hidden="true" />
+          <span className="owner-name">{owner.name}</span>
+        </span>
+      ) : null}
     </section>
   );
 }
@@ -970,12 +976,14 @@ export default function App() {
       </header>
       {winner ? <div className="winner-banner">{winner.name} wins.</div> : null}
       <div className="game-layout">
-        <Board />
-        <div className="side-panels">
-          <TurnControls />
+        <div className="left-panels">
           <PlayersPanel />
-          <UtilityTabs />
           <LogPanel />
+        </div>
+        <Board />
+        <div className="right-panels">
+          <TurnControls />
+          <UtilityTabs />
         </div>
       </div>
     </main>

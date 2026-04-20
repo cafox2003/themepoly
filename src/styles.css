@@ -16,6 +16,10 @@ body {
   min-width: 320px;
 }
 
+body:has(.app:not(.setup-page)) {
+  overflow: hidden;
+}
+
 button,
 input,
 select {
@@ -54,12 +58,20 @@ button:disabled {
 .app {
   background: var(--app-bg, #eef2e8);
   color: var(--text, #17201a);
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
   padding: 12px;
 }
 
 .setup-page {
   display: grid;
+  flex-direction: initial;
+  height: auto;
+  min-height: 100vh;
+  overflow: auto;
   place-items: center;
 }
 
@@ -168,32 +180,42 @@ button:disabled {
 }
 
 .game-layout {
-  align-items: start;
+  align-items: stretch;
   display: grid;
+  flex: 1 1 auto;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+  grid-template-areas: "left board right";
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(320px, 360px);
   margin: 0 auto;
   max-width: 1720px;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
 }
 
 .board-shell {
+  align-items: start;
   display: flex;
+  grid-area: board;
   justify-content: center;
   min-width: 0;
+  min-height: 0;
   overflow: visible;
 }
 
 .board {
-  aspect-ratio: 1;
+  aspect-ratio: 1 / 1;
   background: var(--board-bg, #c9dec1);
   border: 3px solid var(--text, #17201a);
+  contain: size layout paint;
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: 1.15fr repeat(9, 0.86fr) 1.15fr;
   grid-template-rows: 1.15fr repeat(9, 0.86fr) 1.15fr;
   max-width: 1120px;
   min-width: 0;
   position: relative;
-  width: min(100%, calc(100vh - 86px));
+  width: min(100%, calc(100dvh - 96px), 1120px);
 }
 
 .tile {
@@ -207,6 +229,10 @@ button:disabled {
   padding: 6px 4px;
   position: relative;
   text-align: center;
+}
+
+.tile-owned {
+  padding-bottom: 21px;
 }
 
 .tile-art {
@@ -282,7 +308,6 @@ button:disabled {
 }
 
 .tile-price,
-.owner-mark,
 .building-mark {
   font-size: 0.58rem;
   line-height: 1;
@@ -295,11 +320,6 @@ button:disabled {
   opacity: 0.68;
 }
 
-.owner-mark {
-  color: var(--accent, #15615a);
-  font-weight: 800;
-}
-
 .building-mark,
 .mortgage-mark {
   color: #8a4d00;
@@ -308,6 +328,43 @@ button:disabled {
 
 .mortgage-mark {
   color: #7d1d1d;
+}
+
+.owner-mark {
+  align-items: center;
+  background: color-mix(in srgb, var(--owner-color, var(--accent, #15615a)) 18%, var(--tile-bg, #fafbf6));
+  border: 1px solid var(--owner-color, var(--accent, #15615a));
+  border-radius: 999px;
+  bottom: 3px;
+  color: var(--text, #17201a);
+  display: flex;
+  font-size: 0.6rem;
+  font-weight: 900;
+  gap: 3px;
+  inset-inline: 3px;
+  justify-content: center;
+  line-height: 1;
+  min-height: 16px;
+  overflow: hidden;
+  padding: 1px 4px;
+  position: absolute;
+  z-index: 5;
+}
+
+.owner-dot {
+  background: var(--owner-color, var(--accent, #15615a));
+  border: 1px solid color-mix(in srgb, var(--text, #17201a) 58%, transparent);
+  border-radius: 999px;
+  flex: 0 0 auto;
+  height: 8px;
+  width: 8px;
+}
+
+.owner-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .board-token,
@@ -444,18 +501,38 @@ button:disabled {
   margin: -2px 0 0;
 }
 
-.side-panels {
-  display: grid;
+.left-panels,
+.right-panels {
+  align-content: start;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  max-height: calc(100vh - 86px);
+  max-height: 100%;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+  scrollbar-gutter: stable;
+}
+
+.left-panels > *,
+.right-panels > * {
+  flex: 0 0 auto;
+}
+
+.left-panels {
+  grid-area: left;
+}
+
+.right-panels {
+  grid-area: right;
 }
 
 .actions-panel {
-  max-height: 39vh;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .panel-heading {
@@ -543,7 +620,7 @@ button:disabled {
 .players-panel {
   align-content: start;
   gap: 8px;
-  max-height: 22vh;
+  max-height: none;
   overflow: auto;
 }
 
@@ -755,7 +832,7 @@ button:disabled {
 }
 
 .tab-panel {
-  max-height: 42vh;
+  max-height: none;
   overflow: auto;
   padding: 12px;
 }
@@ -771,7 +848,7 @@ button:disabled {
   display: grid;
   gap: 5px;
   margin: 8px 0 0;
-  max-height: 72px;
+  max-height: min(34vh, 320px);
   overflow: auto;
   padding-left: 20px;
 }
@@ -906,19 +983,41 @@ button:disabled {
   white-space: normal;
 }
 
-@media (max-width: 1180px) {
-  .game-layout {
-    grid-template-columns: 1fr;
+@media (max-width: 1360px) {
+  body:has(.app:not(.setup-page)) {
+    overflow: auto;
   }
 
-  .side-panels {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-height: none;
+  .app {
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  .game-layout {
+    grid-template-areas:
+      "board"
+      "left"
+      "right";
+    grid-template-columns: 1fr;
+    height: auto;
     overflow: visible;
   }
 
+  .left-panels,
+  .right-panels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+    scrollbar-gutter: auto;
+  }
+
   .board {
-    width: min(100%, calc(100vh - 126px));
+    height: auto;
+    width: min(100%, calc(100dvh - 126px), 1120px);
   }
 
   .actions-panel,
@@ -949,7 +1048,8 @@ button:disabled {
     padding: 18px;
   }
 
-  .side-panels {
+  .left-panels,
+  .right-panels {
     grid-template-columns: 1fr;
   }
 
@@ -997,9 +1097,25 @@ button:disabled {
   }
 
   .tile-price,
-  .owner-mark,
   .building-mark {
     font-size: 0.44rem;
+  }
+
+  .tile-owned {
+    padding-bottom: 15px;
+  }
+
+  .owner-mark {
+    bottom: 2px;
+    font-size: 0.48rem;
+    inset-inline: 2px;
+    min-height: 12px;
+    padding: 0 2px;
+  }
+
+  .owner-dot {
+    height: 6px;
+    width: 6px;
   }
 
   .board-center {
