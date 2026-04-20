@@ -154,6 +154,21 @@ describe("Themepoly engine", () => {
     expect(state.players[0].position).toBe(13);
   });
 
+  it("allows only one failed holding doubles attempt per turn", () => {
+    let state = startGame();
+    state.players[0].inJail = true;
+    state.players[0].position = 10;
+    state.phase = "JAILED";
+
+    state = act(state, { type: "ROLL_DICE", playerId: "p1", dice: [1, 2] });
+
+    expect(state.players[0].inJail).toBe(true);
+    expect(state.phase).toBe("BUY_OR_MANAGE");
+    expect(() => reduceGame(state, { type: "ROLL_DICE", playerId: "p1", dice: [2, 3] })).toThrow(
+      "Dice can only be rolled at the start of a turn.",
+    );
+  });
+
   it("applies chance and community chest card actions deterministically", () => {
     let state = startGame();
 
@@ -216,6 +231,11 @@ describe("Themepoly engine", () => {
     state.phase = "ROLL";
 
     state = act(state, { type: "ROLL_DICE", playerId: "p1", dice: [1, 1] });
+    expect(state.players[0].bankrupt).toBe(false);
+    expect(state.players[0].money).toBe(-1);
+    expect(() => reduceGame(state, { type: "END_TURN", playerId: "p1" })).toThrow("Resolve negative money before ending the turn.");
+
+    state = act(state, { type: "DECLARE_BANKRUPTCY", playerId: "p1" });
     expect(state.players[0].bankrupt).toBe(true);
     expect(state.players[0].ownedPropertyIds).toEqual([]);
     expect(state.winnerId).toBe("p2");
@@ -258,7 +278,7 @@ describe("Themepoly engine", () => {
     expect(state.players[1].ownedPropertyIds).toContain("BALTIC_AVENUE");
   });
 
-  it("transfers assets to a creditor when rent causes bankruptcy", () => {
+  it("lets a player sell assets after rent puts them below zero", () => {
     let state = startGame();
     setOwner(state, "p1", "BALTIC_AVENUE");
     setOwner(state, "p2", "BOARDWALK");
@@ -268,10 +288,14 @@ describe("Themepoly engine", () => {
 
     state = act(state, { type: "ROLL_DICE", playerId: "p1", dice: [1, 1] });
 
-    expect(state.players[0].bankrupt).toBe(true);
-    expect(state.properties.BALTIC_AVENUE.ownerId).toBe("p2");
-    expect(state.players[1].ownedPropertyIds).toContain("BALTIC_AVENUE");
-    expect(state.winnerId).toBe("p2");
+    expect(state.players[0].bankrupt).toBe(false);
+    expect(state.players[0].money).toBeLessThan(0);
+
+    state = act(state, { type: "SELL_PROPERTY", playerId: "p1", tileId: "BALTIC_AVENUE" });
+
+    expect(state.properties.BALTIC_AVENUE.ownerId).toBeNull();
+    expect(state.players[0].ownedPropertyIds).not.toContain("BALTIC_AVENUE");
+    expect(state.players[0].money).toBeGreaterThan(10 - 2000);
   });
 
   it("updates rule settings through an engine action", () => {

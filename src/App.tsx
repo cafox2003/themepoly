@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { isOwnable, tileAt, tileById } from "./engine/board";
+import { CHANCE_DECK, COMMUNITY_CHEST_DECK } from "./engine/cards";
 import { CLASSIC_THEME } from "./engine/theme";
 import type { BoardTile, GameSettings, OwnableTile, Player, TileId } from "./engine/types";
 import {
@@ -67,6 +68,24 @@ const buildingLabel = (houses: number) => {
   return `${houses} houses`;
 };
 
+const moneyLabel = (amount: number) => `${amount >= 0 ? "+" : "-"}$${Math.abs(amount)}`;
+
+const themedLogMessage = (message: string, theme: typeof CLASSIC_THEME, board: BoardTile[]) => {
+  let next = message;
+  for (const tile of board) {
+    next = next.replaceAll(tile.label, getTileLabel(theme, tile));
+  }
+  CHANCE_DECK.forEach((card, index) => {
+    const themed = theme.cards.chance[index]?.text;
+    if (themed) next = next.replaceAll(card.text, themed);
+  });
+  COMMUNITY_CHEST_DECK.forEach((card, index) => {
+    const themed = theme.cards.communityChest[index]?.text;
+    if (themed) next = next.replaceAll(card.text, themed);
+  });
+  return next;
+};
+
 function SetupPanel() {
   const startGame = useGameStore((store) => store.startGame);
   const theme = useThemeStore((store) => store.theme);
@@ -85,9 +104,9 @@ function SetupPanel() {
   const [joinRoomId, setJoinRoomId] = useState(() => new URLSearchParams(window.location.search).get("room") ?? "");
   const [joinPlayerName, setJoinPlayerName] = useState(defaultNames[0]);
 
-  const setupPlayers = () =>
+  const setupPlayers = (firstPlayerName?: string) =>
     names.slice(0, playerCount).map((name, index) => ({
-      name,
+      name: index === 0 && firstPlayerName?.trim() ? firstPlayerName.trim() : name,
       tokenId: theme.tokens[index % theme.tokens.length].id,
     }));
 
@@ -98,7 +117,7 @@ function SetupPanel() {
 
   const hostRoom = async () => {
     if (multiplayerStatus !== "connected") await connect(serverUrl);
-    createRoom(setupPlayers());
+    createRoom(setupPlayers(joinPlayerName));
   };
 
   const joinExistingRoom = async () => {
@@ -189,6 +208,18 @@ function BoardToken({ player, className = "", style }: { player: Player; classNa
   );
 }
 
+function BuildingMark({ houses }: { houses: number }) {
+  if (houses <= 0) return null;
+  if (houses === 5) return <span className="building-mark hotel-mark">Hotel</span>;
+  return (
+    <span className="building-mark house-icons" aria-label={buildingLabel(houses)} title={buildingLabel(houses)}>
+      {Array.from({ length: houses }, (_, index) => (
+        <span key={index}>H</span>
+      ))}
+    </span>
+  );
+}
+
 function BoardTileView({ tile }: { tile: BoardTile }) {
   const state = useGameStore((store) => store.state);
   const theme = useThemeStore((store) => store.theme);
@@ -210,7 +241,7 @@ function BoardTileView({ tile }: { tile: BoardTile }) {
           ))}
         </span>
         {isOwnable(tile) ? <span className="tile-price">${tile.price}</span> : null}
-        {property?.houses ? <span className="building-mark">{buildingLabel(property.houses)}</span> : null}
+        {property?.houses ? <BuildingMark houses={property.houses} /> : null}
         {property?.mortgaged ? <span className="mortgage-mark">Mortgaged</span> : null}
       </div>
       {owner && ownerToken ? (
@@ -283,6 +314,10 @@ function Board() {
   const theme = useThemeStore((store) => store.theme);
   const current = state.players[state.currentTurn];
   const currentTile = current ? tileAt(current.position) : null;
+  const currentToken = current ? getThemeToken(theme, current) : null;
+  const latestCard = state.log[0]?.message.includes(" drew: ")
+    ? themedLogMessage(state.log[0].message.split(" drew: ")[1] ?? "", theme, board)
+    : null;
 
   return (
     <div className="board-shell">
@@ -299,8 +334,17 @@ function Board() {
           }}
         >
           <p className="eyebrow">Current turn</p>
-          <h2>{current?.name ?? "No game"}</h2>
+          <div className="turn-spotlight">
+            {current && currentToken ? <span className="token-dot large-token-dot" style={{ background: currentToken.color }} /> : null}
+            <h2>{current?.name ?? "No game"}</h2>
+          </div>
           <p className="current-location">{currentTile ? getTileLabel(theme, currentTile) : "Start a game to play."}</p>
+          {latestCard ? (
+            <div className="card-reveal" key={`${state.log[0]?.id ?? 0}-${latestCard}`}>
+              <span>Card</span>
+              <strong>{latestCard}</strong>
+            </div>
+          ) : null}
           <DiceDisplay dice={state.dice} />
           <p className="phase">{state.phase.replaceAll("_", " ")}</p>
         </div>
@@ -365,7 +409,6 @@ function TurnControls() {
   const current = state.players[state.currentTurn];
   const currentTile = current ? tileAt(current.position) : null;
   const canBuy = currentTile && isOwnable(currentTile) && !state.properties[currentTile.id].ownerId && state.phase === "BUY_OR_MANAGE";
-  const willRollAgain = state.dice[0] !== 0 && state.dice[0] === state.dice[1] && state.doublesRolledThisTurn > 0 && !current.inJail;
   const buildable = useMemo(() => selectBuildableProperties(state), [state]);
   const sellableBuildings = useMemo(() => selectSellableBuildings(state), [state]);
   const mortgageable = useMemo(() => selectMortgageableProperties(state), [state]);
@@ -379,13 +422,11 @@ function TurnControls() {
   if (!current) return null;
 
   const remoteBlocked = multiplayerStatus === "connected" && current.id !== claimedPlayerId;
-
-  const hasManagement =
-    buildable.length > 0 ||
-    sellableBuildings.length > 0 ||
-    mortgageable.length > 0 ||
-    unmortgageable.length > 0 ||
-    sellableProperties.length > 0;
+  const willRollAgain = state.dice[0] !== 0 && state.dice[0] === state.dice[1] && state.doublesRolledThisTurn > 0 && !current.inJail;
+  const mustResolveDebt = current.money < 0;
+  const canRollNow = state.phase === "ROLL" || state.phase === "JAILED";
+  const rollButtonLabel = willRollAgain && state.phase !== "ROLL" ? "Roll again" : "Roll dice";
+  const rollButtonAction = willRollAgain && state.phase !== "ROLL" ? endTurn : rollDice;
 
   return (
     <details className="panel actions-panel collapsible-panel" open>
@@ -405,30 +446,31 @@ function TurnControls() {
         </button>
       ) : null}
       {remoteBlocked ? <p className="turn-lock">Waiting for {current.name}'s controller.</p> : null}
+      {mustResolveDebt ? <p className="debt-warning">Sell or mortgage assets to get back to $0 before ending the turn.</p> : null}
       <div className="button-row">
-        <button type="button" className="primary" disabled={remoteBlocked || (state.phase !== "ROLL" && state.phase !== "JAILED")} onClick={rollDice}>
-          Roll dice
+        <button type="button" className="primary" disabled={remoteBlocked || (!canRollNow && !willRollAgain)} onClick={rollButtonAction}>
+          {rollButtonLabel}
         </button>
-        <button type="button" disabled={remoteBlocked || state.phase === "ROLL" || state.phase === "GAME_OVER"} onClick={endTurn}>
-          {willRollAgain ? "Roll again" : "End turn"}
+        <button type="button" disabled={remoteBlocked || mustResolveDebt || willRollAgain || state.phase === "ROLL" || state.phase === "JAILED" || state.phase === "GAME_OVER"} onClick={endTurn}>
+          End turn
         </button>
       </div>
       {current.inJail ? (
         <div className="jail-actions">
-          <button type="button" disabled={remoteBlocked} onClick={payBail}>
+          <button type="button" disabled={remoteBlocked || state.phase !== "JAILED"} onClick={payBail}>
             Pay $50 bail
           </button>
-          <button type="button" disabled={remoteBlocked || current.getOutOfJailCards === 0} onClick={useJailCard}>
+          <button type="button" disabled={remoteBlocked || state.phase !== "JAILED" || current.getOutOfJailCards === 0} onClick={useJailCard}>
             Use holding card
           </button>
         </div>
       ) : null}
       {canBuy && isOwnable(currentTile) ? (
-        <button type="button" className="buy-button" disabled={remoteBlocked} onClick={buyProperty}>
+        <button type="button" className="buy-button" disabled={remoteBlocked || current.money < currentTile.price} onClick={buyProperty}>
           Buy {getTileLabel(theme, currentTile)} for ${currentTile.price}
         </button>
       ) : null}
-      <details className="management-drawer" open={hasManagement}>
+      <details className="management-drawer">
         <summary>Property management</summary>
         <ManagementList title="Build" empty="Own a full color group to build.">
           {buildable.map((tile) => (
@@ -437,7 +479,7 @@ function TurnControls() {
               tile={tile}
               actionLabel={`Buy $${tile.houseCost}`}
               detail={state.properties[tile.id].houses === 4 ? "Next: hotel" : "Next: house"}
-              disabled={remoteBlocked}
+              disabled={remoteBlocked || current.money < (tile.houseCost ?? 0)}
               onAction={() => buyHouse(tile.id)}
             />
           ))}
@@ -482,14 +524,26 @@ function PlayersPanel() {
   const state = useGameStore((store) => store.state);
   const theme = useThemeStore((store) => store.theme);
   const claimedPlayerId = useMultiplayerStore((store) => store.claimedPlayerId);
+  const previousMoney = useRef<Record<string, number>>({});
+  const moneyDeltas = state.players.reduce<Record<string, number>>((deltas, player) => {
+    const previous = previousMoney.current[player.id];
+    if (previous !== undefined && previous !== player.money) deltas[player.id] = player.money - previous;
+    return deltas;
+  }, {});
+
+  useEffect(() => {
+    previousMoney.current = Object.fromEntries(state.players.map((player) => [player.id, player.money]));
+  }, [state.players]);
+
   return (
     <details className="panel players-panel collapsible-panel" open>
       <summary>Players</summary>
       {state.players.map((player, index) => {
         const token = getThemeToken(theme, player);
         const positionTile = tileAt(player.position);
+        const moneyDelta = moneyDeltas[player.id];
         return (
-          <div className={`player-card ${index === state.currentTurn ? "active" : ""}`} key={player.id}>
+          <div className={`player-card ${index === state.currentTurn ? "active" : ""} ${player.money < 0 ? "in-debt" : ""}`} key={player.id}>
             <span className="token-dot" style={{ background: token.color }} />
             <div>
               <strong>{player.name}</strong>
@@ -497,6 +551,7 @@ function PlayersPanel() {
                 ${player.money} · {getTileLabel(theme, positionTile)}
               </span>
             </div>
+            {moneyDelta ? <small className={`money-delta ${moneyDelta > 0 ? "positive" : "negative"}`}>{moneyLabel(moneyDelta)}</small> : null}
             <small>{player.ownedPropertyIds.length} deeds</small>
             {claimedPlayerId === player.id ? <small className="seat-mark">You</small> : null}
           </div>
@@ -596,11 +651,13 @@ function TradePanel() {
   const [requestMoney, setRequestMoney] = useState(0);
   const [offerPropertyIds, setOfferPropertyIds] = useState<TileId[]>([]);
   const [requestPropertyIds, setRequestPropertyIds] = useState<TileId[]>([]);
+  const [confirmingTrade, setConfirmingTrade] = useState(false);
 
   useEffect(() => {
     if (!targets.some((target) => target.id === targetPlayerId)) {
       setTargetPlayerId(targets[0]?.id ?? "");
       setRequestPropertyIds([]);
+      setConfirmingTrade(false);
     }
   }, [targetPlayerId, targets]);
 
@@ -613,11 +670,16 @@ function TradePanel() {
       .filter((tile): tile is OwnableTile => isOwnable(tile) && state.properties[tile.id].houses === 0);
 
   const toggleTile = (tileId: TileId, selected: TileId[], setSelected: (next: TileId[]) => void) => {
+    setConfirmingTrade(false);
     setSelected(selected.includes(tileId) ? selected.filter((id) => id !== tileId) : [...selected, tileId]);
   };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    if (!confirmingTrade) {
+      setConfirmingTrade(true);
+      return;
+    }
     trade({
       targetPlayerId: target.id,
       offerMoney,
@@ -629,6 +691,7 @@ function TradePanel() {
     setRequestMoney(0);
     setOfferPropertyIds([]);
     setRequestPropertyIds([]);
+    setConfirmingTrade(false);
   };
 
   return (
@@ -640,7 +703,10 @@ function TradePanel() {
       <form className="compact-form" onSubmit={submit}>
         <label>
           With
-          <select value={target.id} onChange={(event) => setTargetPlayerId(event.target.value)}>
+          <select value={target.id} onChange={(event) => {
+            setTargetPlayerId(event.target.value);
+            setConfirmingTrade(false);
+          }}>
             {targets.map((player) => (
               <option key={player.id} value={player.id}>
                 {player.name}
@@ -651,11 +717,17 @@ function TradePanel() {
         <div className="two-field-grid">
           <label>
             Give $
-            <input min="0" type="number" value={offerMoney} onChange={(event) => setOfferMoney(Number(event.target.value))} />
+            <input min="0" type="number" value={offerMoney} onChange={(event) => {
+              setOfferMoney(Number(event.target.value));
+              setConfirmingTrade(false);
+            }} />
           </label>
           <label>
             Get $
-            <input min="0" type="number" value={requestMoney} onChange={(event) => setRequestMoney(Number(event.target.value))} />
+            <input min="0" type="number" value={requestMoney} onChange={(event) => {
+              setRequestMoney(Number(event.target.value));
+              setConfirmingTrade(false);
+            }} />
           </label>
         </div>
         <TradePropertyPicker
@@ -672,8 +744,18 @@ function TradePanel() {
           onToggle={(tileId) => toggleTile(tileId, requestPropertyIds, setRequestPropertyIds)}
           theme={theme}
         />
+        {confirmingTrade ? (
+          <div className="trade-confirmation">
+            <strong>Confirm trade</strong>
+            <span>
+              {current.name} gives ${offerMoney}
+              {offerPropertyIds.length ? ` and ${offerPropertyIds.length} deed${offerPropertyIds.length === 1 ? "" : "s"}` : ""}; {target.name} gives ${requestMoney}
+              {requestPropertyIds.length ? ` and ${requestPropertyIds.length} deed${requestPropertyIds.length === 1 ? "" : "s"}` : ""}.
+            </span>
+          </div>
+        ) : null}
         <button type="submit" className="primary">
-          Complete trade
+          {confirmingTrade ? "Confirm trade" : "Review trade"}
         </button>
       </form>
     </aside>
@@ -934,12 +1016,14 @@ function ThemeName() {
 
 function LogPanel() {
   const log = useGameStore((store) => store.state.log);
+  const board = useGameStore((store) => store.state.board);
+  const theme = useThemeStore((store) => store.theme);
   return (
     <details className="log-panel collapsible-panel">
       <summary>Game log</summary>
       <ol>
         {log.map((entry) => (
-          <li key={entry.id}>{entry.message}</li>
+          <li key={entry.id}>{themedLogMessage(entry.message, theme, board)}</li>
         ))}
       </ol>
     </details>
@@ -948,9 +1032,12 @@ function LogPanel() {
 
 export default function App() {
   const state = useGameStore((store) => store.state);
+  const startGame = useGameStore((store) => store.startGame);
   const theme = useThemeStore((store) => store.theme);
   const initializeThemeLibrary = useThemeStore((store) => store.initializeThemeLibrary);
+  const multiplayerStatus = useMultiplayerStore((store) => store.status);
   const winner = state.winnerId ? state.players.find((player) => player.id === state.winnerId) : null;
+  const rematchPlayers = () => state.players.map((player) => ({ name: player.name, tokenId: player.tokenId }));
 
   useEffect(() => {
     void initializeThemeLibrary();
@@ -974,7 +1061,14 @@ export default function App() {
         <div className="bank-pill">Rest Stop ${state.bank.freeParkingPot}</div>
         <ThemeName />
       </header>
-      {winner ? <div className="winner-banner">{winner.name} wins.</div> : null}
+      {winner ? (
+        <div className="winner-banner">
+          <span>{winner.name} wins.</span>
+          <button type="button" disabled={multiplayerStatus === "connected"} onClick={() => startGame(rematchPlayers())}>
+            Rematch
+          </button>
+        </div>
+      ) : null}
       <div className="game-layout">
         <div className="left-panels">
           <PlayersPanel />

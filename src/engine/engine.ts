@@ -39,13 +39,11 @@ const changeMoney = (state: GameState, player: Player, amount: number) => {
 const payBank = (state: GameState, player: Player, amount: number) => {
   changeMoney(state, player, -amount);
   if (state.settings.freeParkingJackpot) state.bank.freeParkingPot += amount;
-  if (player.money < 0) bankruptToBank(state, player);
 };
 
 const transferMoney = (state: GameState, from: Player, to: Player, amount: number) => {
   changeMoney(state, from, -amount);
   changeMoney(state, to, amount);
-  if (from.money < 0) bankruptToPlayer(state, from, to);
 };
 
 const releaseProperties = (state: GameState, playerId: string) => {
@@ -103,6 +101,7 @@ const updateWinner = (state: GameState) => {
 const endTurn = (state: GameState) => {
   if (state.phase === "GAME_OVER") return;
   const player = currentPlayer(state);
+  if (player.money < 0) throw new Error("Resolve negative money before ending the turn.");
   const rolledDoubles = state.dice[0] !== 0 && state.dice[0] === state.dice[1];
   if (!player.inJail && rolledDoubles && state.doublesRolledThisTurn > 0) {
     state.phase = "ROLL";
@@ -338,7 +337,7 @@ export const reduceGame = (inputState: GameState, action: GameAction): EngineRes
           log(state, `${player.name} paid $${state.settings.bailAmount} after three holding turns.`, events);
           resolveLanding(state, player, events);
         } else {
-          state.phase = "JAILED";
+          state.phase = "BUY_OR_MANAGE";
           log(state, `${player.name} did not roll doubles in holding.`, events);
         }
       }
