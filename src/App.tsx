@@ -17,6 +17,7 @@ import { appThemeStyle, getThemeToken, getTileImage, getTileLabel } from "./them
 const defaultNames = ["Player 1", "Player 2", "Player 3", "Player 4"];
 
 const sampleThemes = [
+  { id: "pusheen-cafe", name: "Pusheen Cafe", file: "/themes/pusheen-cafe.zip" },
   { id: "noir-city", name: "Noir City", file: "/themes/noir-city.zip" },
   { id: "space-art-demo", name: "Space Art Demo", file: "/themes/space-art-demo.zip" },
 ];

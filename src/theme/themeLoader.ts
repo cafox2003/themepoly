@@ -4,7 +4,12 @@ import type { GameTheme } from "../engine/theme";
 import type { CardAction, TileId } from "../engine/types";
 
 const MAX_THEME_SIZE = 100 * 1024 * 1024;
-const SUPPORTED_IMAGE = /\.(png|jpe?g)$/i;
+const SUPPORTED_IMAGE = /\.(png|jpe?g|svg)$/i;
+const mimeTypeForAsset = (path: string) => {
+  if (/\.svg$/i.test(path)) return "image/svg+xml";
+  if (/\.png$/i.test(path)) return "image/png";
+  return "image/jpeg";
+};
 const tileIds = new Set<TileId>(BOARD.map((tile) => tile.id));
 const ownableIds = new Set<TileId>(ownableTiles.map((tile) => tile.id));
 const cardActionTypes = new Set<CardAction["type"]>([
@@ -30,7 +35,7 @@ function assertOptionalAssetPath(path: unknown, field: string): asserts path is 
   if (path === undefined) return;
   assert(typeof path === "string" && path.length > 0, `${field} must be a non-empty string.`);
   assert(!path.startsWith("/") && !path.includes(".."), `${field} must stay inside the theme zip.`);
-  assert(SUPPORTED_IMAGE.test(path), `${field} must point to a PNG or JPG asset.`);
+  assert(SUPPORTED_IMAGE.test(path), `${field} must point to a PNG, JPG, or SVG asset.`);
 }
 
 function validateCardAction(value: unknown, field: string): asserts value is CardAction {
@@ -110,7 +115,7 @@ const resolveAsset = async (zip: JSZip, objectUrls: string[], path?: string) => 
   if (!path) return undefined;
   const file = zip.file(path);
   assert(file, `Theme asset is missing: ${path}`);
-  const blob = await file.async("blob");
+  const blob = new Blob([await file.async("arraybuffer")], { type: mimeTypeForAsset(path) });
   const url = URL.createObjectURL(blob);
   objectUrls.push(url);
   return url;
