@@ -532,13 +532,13 @@ function TurnControls() {
           {error}
         </button>
       ) : null}
-      {remoteBlocked ? <p className="turn-lock">It is {current.name}'s turn.</p> : null}
       {mustResolveDebt ? <p className="debt-warning">Sell or mortgage assets to get back to $0 before ending the turn.</p> : null}
       <div className="button-row">
         <button type="button" className="primary turn-action-button" disabled={turnButtonDisabled} onClick={turnButtonAction}>
           {turnButtonLabel}
         </button>
       </div>
+      {remoteBlocked ? <p className="turn-lock">It is {current.name}'s turn.</p> : null}
       {current.inJail ? (
         <div className="jail-actions">
           <button type="button" disabled={remoteBlocked || state.phase !== "JAILED"} onClick={payBail}>
@@ -726,8 +726,12 @@ function MultiplayerStatusPanel() {
 
 function TradePanel() {
   const state = useGameStore((store) => store.state);
-  const trade = useGameStore((store) => store.trade);
+  const proposeTrade = useGameStore((store) => store.proposeTrade);
+  const acceptTrade = useGameStore((store) => store.acceptTrade);
+  const cancelTrade = useGameStore((store) => store.cancelTrade);
   const theme = useThemeStore((store) => store.theme);
+  const multiplayerStatus = useMultiplayerStore((store) => store.status);
+  const claimedPlayerId = useMultiplayerStore((store) => store.claimedPlayerId);
   const current = state.players[state.currentTurn];
   const targets = state.players.filter((player) => player.id !== current?.id && !player.bankrupt);
   const [targetPlayerId, setTargetPlayerId] = useState(targets[0]?.id ?? "");
@@ -735,40 +739,39 @@ function TradePanel() {
   const [requestMoney, setRequestMoney] = useState(0);
   const [offerPropertyIds, setOfferPropertyIds] = useState<TileId[]>([]);
   const [requestPropertyIds, setRequestPropertyIds] = useState<TileId[]>([]);
-  const [confirmingTrade, setConfirmingTrade] = useState(false);
-  const [targetAccepted, setTargetAccepted] = useState(false);
 
   useEffect(() => {
     if (!targets.some((target) => target.id === targetPlayerId)) {
       setTargetPlayerId(targets[0]?.id ?? "");
       setRequestPropertyIds([]);
-      setConfirmingTrade(false);
-      setTargetAccepted(false);
     }
   }, [targetPlayerId, targets]);
 
   if (!current || targets.length === 0) return null;
 
   const target = targets.find((player) => player.id === targetPlayerId) ?? targets[0];
+  const pendingTrade = state.pendingTrade;
+  const pendingProposer = state.players.find((player) => player.id === pendingTrade?.proposerId);
+  const pendingTarget = state.players.find((player) => player.id === pendingTrade?.targetPlayerId);
+  const canSendOffer = multiplayerStatus !== "connected" || claimedPlayerId === current.id;
+  const canAcceptPending = pendingTrade && (multiplayerStatus !== "connected" || claimedPlayerId === pendingTrade.targetPlayerId);
+  const canCancelPending = pendingTrade && (
+    multiplayerStatus !== "connected" ||
+    claimedPlayerId === pendingTrade.proposerId ||
+    claimedPlayerId === pendingTrade.targetPlayerId
+  );
   const tradeableFor = (player: Player) =>
     player.ownedPropertyIds
       .map((tileId) => tileById(tileId))
       .filter((tile): tile is OwnableTile => isOwnable(tile) && state.properties[tile.id].houses === 0);
 
   const toggleTile = (tileId: TileId, selected: TileId[], setSelected: (next: TileId[]) => void) => {
-    setConfirmingTrade(false);
-    setTargetAccepted(false);
     setSelected(selected.includes(tileId) ? selected.filter((id) => id !== tileId) : [...selected, tileId]);
   };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!confirmingTrade) {
-      setConfirmingTrade(true);
-      return;
-    }
-    if (!targetAccepted) return;
-    trade({
+    proposeTrade({
       targetPlayerId: target.id,
       offerMoney,
       requestMoney,
@@ -779,8 +782,6 @@ function TradePanel() {
     setRequestMoney(0);
     setOfferPropertyIds([]);
     setRequestPropertyIds([]);
-    setConfirmingTrade(false);
-    setTargetAccepted(false);
   };
 
   return (
@@ -794,8 +795,6 @@ function TradePanel() {
           With
           <select value={target.id} onChange={(event) => {
             setTargetPlayerId(event.target.value);
-            setConfirmingTrade(false);
-            setTargetAccepted(false);
           }}>
             {targets.map((player) => (
               <option key={player.id} value={player.id}>
@@ -809,16 +808,12 @@ function TradePanel() {
             Give $
             <input min="0" type="number" value={offerMoney} onChange={(event) => {
               setOfferMoney(Number(event.target.value));
-              setConfirmingTrade(false);
-              setTargetAccepted(false);
             }} />
           </label>
           <label>
             Get $
             <input min="0" type="number" value={requestMoney} onChange={(event) => {
               setRequestMoney(Number(event.target.value));
-              setConfirmingTrade(false);
-              setTargetAccepted(false);
             }} />
           </label>
         </div>
@@ -836,22 +831,26 @@ function TradePanel() {
           onToggle={(tileId) => toggleTile(tileId, requestPropertyIds, setRequestPropertyIds)}
           theme={theme}
         />
-        {confirmingTrade ? (
+        {pendingTrade && pendingProposer && pendingTarget ? (
           <div className="trade-confirmation">
-            <strong>Confirm trade</strong>
+            <strong>Pending offer</strong>
             <span>
-              {current.name} gives ${offerMoney}
-              {offerPropertyIds.length ? ` and ${offerPropertyIds.length} deed${offerPropertyIds.length === 1 ? "" : "s"}` : ""}; {target.name} gives ${requestMoney}
-              {requestPropertyIds.length ? ` and ${requestPropertyIds.length} deed${requestPropertyIds.length === 1 ? "" : "s"}` : ""}.
+              {pendingProposer.name} gives ${pendingTrade.offerMoney}
+              {pendingTrade.offerPropertyIds.length ? ` and ${pendingTrade.offerPropertyIds.length} deed${pendingTrade.offerPropertyIds.length === 1 ? "" : "s"}` : ""}; {pendingTarget.name} gives ${pendingTrade.requestMoney}
+              {pendingTrade.requestPropertyIds.length ? ` and ${pendingTrade.requestPropertyIds.length} deed${pendingTrade.requestPropertyIds.length === 1 ? "" : "s"}` : ""}.
             </span>
-            <label className="check-label">
-              <input type="checkbox" checked={targetAccepted} onChange={(event) => setTargetAccepted(event.target.checked)} />
-              {target.name} accepts this trade
-            </label>
+            <div className="button-row">
+              <button type="button" className="primary" disabled={!canAcceptPending} onClick={() => acceptTrade(pendingTrade.id)}>
+                Accept offer
+              </button>
+              <button type="button" disabled={!canCancelPending} onClick={() => cancelTrade(pendingTrade.id, claimedPlayerId ?? undefined)}>
+                Cancel
+              </button>
+            </div>
           </div>
         ) : null}
-        <button type="submit" className="primary" disabled={confirmingTrade && !targetAccepted}>
-          {confirmingTrade ? "Confirm trade" : "Review trade"}
+        <button type="submit" className="primary" disabled={!canSendOffer || Boolean(pendingTrade)}>
+          Send offer
         </button>
       </form>
     </aside>
@@ -1168,10 +1167,12 @@ function LogPanel() {
 export default function App() {
   const state = useGameStore((store) => store.state);
   const startGame = useGameStore((store) => store.startGame);
+  const resetToMenu = useGameStore((store) => store.resetToMenu);
   const theme = useThemeStore((store) => store.theme);
   const initializeThemeLibrary = useThemeStore((store) => store.initializeThemeLibrary);
   const multiplayerStatus = useMultiplayerStore((store) => store.status);
   const rematchRoom = useMultiplayerStore((store) => store.rematchRoom);
+  const disconnect = useMultiplayerStore((store) => store.disconnect);
   const winner = state.winnerId ? state.players.find((player) => player.id === state.winnerId) : null;
   const rematchPlayers = () => state.players.map((player) => ({ name: player.name, tokenId: player.tokenId }));
   const startRematch = () => {
@@ -1180,6 +1181,10 @@ export default function App() {
       return;
     }
     startGame(rematchPlayers());
+  };
+  const returnToMenu = () => {
+    if (multiplayerStatus === "connected") disconnect();
+    resetToMenu();
   };
 
   useEffect(() => {
@@ -1210,6 +1215,9 @@ export default function App() {
           <span>{winner.name} wins.</span>
           <button type="button" onClick={startRematch}>
             Rematch
+          </button>
+          <button type="button" onClick={returnToMenu}>
+            Main menu
           </button>
         </div>
       ) : null}

@@ -130,6 +130,16 @@ export interface GameLogEntry {
   message: string;
 }
 
+export interface PendingTrade {
+  id: string;
+  proposerId: string;
+  targetPlayerId: string;
+  offerMoney: number;
+  requestMoney: number;
+  offerPropertyIds: TileId[];
+  requestPropertyIds: TileId[];
+}
+
 export interface GameState {
   version: "1.0";
   players: Player[];
@@ -145,6 +155,7 @@ export interface GameState {
   chanceDeckIndex: number;
   communityChestDeckIndex: number;
   winnerId: string | null;
+  pendingTrade: PendingTrade | null;
   log: GameLogEntry[];
 }
 
@@ -178,14 +189,17 @@ export type GameAction =
   | { type: "MORTGAGE_PROPERTY"; playerId: string; tileId: TileId }
   | { type: "UNMORTGAGE_PROPERTY"; playerId: string; tileId: TileId }
   | {
-      type: "TRADE";
+      type: "PROPOSE_TRADE";
       playerId: string;
+      tradeId: string;
       targetPlayerId: string;
       offerMoney: number;
       requestMoney: number;
       offerPropertyIds: TileId[];
       requestPropertyIds: TileId[];
     }
+  | { type: "ACCEPT_TRADE"; playerId: string; tradeId: string }
+  | { type: "CANCEL_TRADE"; playerId: string; tradeId: string }
   | { type: "DECLARE_BANKRUPTCY"; playerId: string }
   | { type: "UPDATE_SETTINGS"; playerId: string; settings: Partial<GameSettings> };
 

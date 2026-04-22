@@ -26,6 +26,11 @@ interface MultiplayerStore {
 
 let socket: WebSocket | null = null;
 let intentionalClose = false;
+let reconnectTimer: number | null = null;
+let heartbeatTimer: number | null = null;
+let reconnectAttempt = 0;
+let lastRoomId = "";
+let lastPlayerName = "Player";
 const clientTokenKey = "themepoly-client-token";
 
 const randomToken = () => {
@@ -34,10 +39,10 @@ const randomToken = () => {
 };
 
 const getClientToken = () => {
-  const stored = window.localStorage.getItem(clientTokenKey);
+  const stored = window.sessionStorage.getItem(clientTokenKey);
   if (stored) return stored;
   const token = randomToken();
-  window.localStorage.setItem(clientTokenKey, token);
+  window.sessionStorage.setItem(clientTokenKey, token);
   return token;
 };
 
@@ -48,11 +53,32 @@ const send = (message: ClientMessage) => {
 
 const defaultUrl = () => {
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  // return `${protocol}://${window.location.hostname}:8787`;
-  return "https://themepoly.onrender.com/"
+  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    return `${protocol}://${window.location.hostname}:8787`;
+  }
+  return "wss://themepoly.onrender.com/";
 };
 
 const actionPlayerId = (action: GameAction) => ("playerId" in action ? action.playerId : null);
+
+const clearReconnectTimer = () => {
+  if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+};
+
+const stopHeartbeat = () => {
+  if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+};
+
+const startHeartbeat = () => {
+  stopHeartbeat();
+  heartbeatTimer = window.setInterval(() => {
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "PING" } satisfies ClientMessage));
+    }
+  }, 25000);
+};
 
 export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   status: "offline",
@@ -70,12 +96,16 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
         socket.close();
       }
       intentionalClose = false;
+      clearReconnectTimer();
+      stopHeartbeat();
       set({ status: "connecting", url, error: null });
       socket = new WebSocket(url);
 
       socket.onopen = () => {
+        reconnectAttempt = 0;
         useGameStore.getState().setRemoteActionSender((action) => get().sendAction(action));
         set({ status: "connected", error: null });
+        startHeartbeat();
         resolve();
       };
       socket.onerror = () => {
@@ -85,32 +115,46 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       };
       socket.onclose = () => {
         useGameStore.getState().setRemoteActionSender(null);
+        stopHeartbeat();
         socket = null;
         const wasIntentional = intentionalClose;
         intentionalClose = false;
         const previousRoomId = get().roomId;
         const previousPlayerName = useGameStore.getState().state.players.find((player) => player.id === get().claimedPlayerId)?.name ?? "Player";
+        if (previousRoomId) {
+          lastRoomId = previousRoomId;
+          lastPlayerName = previousPlayerName;
+        }
         set({
           status: "offline",
-          error: wasIntentional ? null : "Connection lost. Reconnect to the room with this browser to reclaim your player.",
+          error: wasIntentional ? null : "Connection lost. Reconnecting...",
         });
         if (!wasIntentional && previousRoomId) {
-          window.setTimeout(() => {
+          const scheduleReconnect = () => {
             if (get().status !== "offline") return;
-            get().connect(get().url)
-              .then(() => get().joinRoom(previousRoomId, previousPlayerName))
-              .catch(() => undefined);
-          }, 1400);
+            const delay = Math.min(30000, 1000 * 2 ** reconnectAttempt);
+            reconnectAttempt += 1;
+            reconnectTimer = window.setTimeout(() => {
+              if (get().status !== "offline") return;
+              get().connect(get().url)
+                .then(() => get().joinRoom(lastRoomId, lastPlayerName))
+                .catch(() => scheduleReconnect());
+            }, delay);
+          };
+          scheduleReconnect();
         }
       };
       socket.onmessage = (event) => {
         const message = JSON.parse(event.data) as ServerMessage;
+        if (message.type === "PONG") return;
         if (message.type === "ERROR") {
           set({ error: message.message });
           return;
         }
         if (message.type === "ROOM_CREATED" || message.type === "ROOM_JOINED") {
           useGameStore.getState().replaceState(message.state);
+          lastRoomId = message.roomId;
+          lastPlayerName = message.state.players.find((player) => player.id === message.claimedPlayerId)?.name ?? lastPlayerName;
           set({ roomId: message.roomId, clientId: message.clientId, claimedPlayerId: message.claimedPlayerId, seats: message.seats, error: null });
           return;
         }
@@ -126,8 +170,11 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     }),
   disconnect: () => {
     intentionalClose = true;
+    clearReconnectTimer();
+    stopHeartbeat();
     socket?.close();
     socket = null;
+    lastRoomId = "";
     useGameStore.getState().setRemoteActionSender(null);
     set({ status: "offline", roomId: "", clientId: "", claimedPlayerId: null, seats: {}, error: null });
   },
@@ -140,7 +187,9 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   },
   joinRoom: (roomId, playerName) => {
     try {
-      send({ type: "JOIN_ROOM", roomId: roomId.trim(), clientToken: get().clientToken, playerName: playerName.trim() || "Player" });
+      lastRoomId = roomId.trim();
+      lastPlayerName = playerName.trim() || "Player";
+      send({ type: "JOIN_ROOM", roomId: lastRoomId, clientToken: get().clientToken, playerName: lastPlayerName });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Could not join room." });
     }

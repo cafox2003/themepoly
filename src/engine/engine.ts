@@ -121,7 +121,7 @@ const endTurn = (state: GameState) => {
 const movePlayer = (state: GameState, player: Player, spaces: number) => {
   const next = player.position + spaces;
   if (spaces > 0 && next >= BOARD.length) {
-    changeMoney(state, player, state.settings.salary);
+    changeMoney(state, player, next % BOARD.length === 0 ? state.settings.salary + 100 : state.settings.salary);
   }
   player.position = ((next % BOARD.length) + BOARD.length) % BOARD.length;
 };
@@ -298,6 +298,42 @@ const sanitizeMoney = (amount: number) => {
   return Math.max(0, Math.floor(amount));
 };
 
+const transferTrade = (
+  state: GameState,
+  player: Player,
+  target: Player,
+  trade: {
+    offerMoney: number;
+    requestMoney: number;
+    offerPropertyIds: TileId[];
+    requestPropertyIds: TileId[];
+  },
+) => {
+  const offerMoney = sanitizeMoney(trade.offerMoney);
+  const requestMoney = sanitizeMoney(trade.requestMoney);
+  const offerPropertyIds = [...new Set(trade.offerPropertyIds)];
+  const requestPropertyIds = [...new Set(trade.requestPropertyIds)];
+  if (player.money < offerMoney || target.money < requestMoney) throw new Error("A player cannot afford this trade.");
+  if (!offerPropertyIds.every((tileId) => canTransferProperty(state, player, tileId))) throw new Error("Offered properties cannot be traded.");
+  if (!requestPropertyIds.every((tileId) => canTransferProperty(state, target, tileId))) throw new Error("Requested properties cannot be traded.");
+
+  changeMoney(state, player, -offerMoney);
+  changeMoney(state, target, offerMoney);
+  changeMoney(state, target, -requestMoney);
+  changeMoney(state, player, requestMoney);
+
+  for (const tileId of offerPropertyIds) {
+    state.properties[tileId].ownerId = target.id;
+    player.ownedPropertyIds = player.ownedPropertyIds.filter((id) => id !== tileId);
+    if (!target.ownedPropertyIds.includes(tileId)) target.ownedPropertyIds.push(tileId);
+  }
+  for (const tileId of requestPropertyIds) {
+    state.properties[tileId].ownerId = player.id;
+    target.ownedPropertyIds = target.ownedPropertyIds.filter((id) => id !== tileId);
+    if (!player.ownedPropertyIds.includes(tileId)) player.ownedPropertyIds.push(tileId);
+  }
+};
+
 export const reduceGame = (inputState: GameState, action: GameAction): EngineResult => {
   const state = cloneState(inputState);
   const events: string[] = [];
@@ -310,6 +346,32 @@ export const reduceGame = (inputState: GameState, action: GameAction): EngineRes
     next.phase = "ROLL";
     next.log = [{ id: 1, message: `${next.players.length} players started a new game.` }];
     return { state: next, events: next.log.map((entry) => entry.message) };
+  }
+
+  if (action.type === "ACCEPT_TRADE") {
+    const pending = state.pendingTrade;
+    if (!pending || pending.id !== action.tradeId) throw new Error("Trade offer is no longer available.");
+    if (pending.targetPlayerId !== action.playerId) throw new Error("Only the requested player can accept this trade.");
+    const proposer = state.players.find((candidate) => candidate.id === pending.proposerId);
+    const target = state.players.find((candidate) => candidate.id === pending.targetPlayerId);
+    if (!proposer || !target || proposer.bankrupt || target.bankrupt) throw new Error("Trade players are not available.");
+    transferTrade(state, proposer, target, pending);
+    state.pendingTrade = null;
+    log(state, `${target.name} accepted ${proposer.name}'s trade.`, events);
+    updateWinner(state);
+    return { state, events };
+  }
+
+  if (action.type === "CANCEL_TRADE") {
+    const pending = state.pendingTrade;
+    if (!pending || pending.id !== action.tradeId) throw new Error("Trade offer is no longer available.");
+    if (pending.proposerId !== action.playerId && pending.targetPlayerId !== action.playerId) {
+      throw new Error("Only a trade participant can cancel this offer.");
+    }
+    const player = state.players.find((candidate) => candidate.id === action.playerId);
+    state.pendingTrade = null;
+    log(state, `${player?.name ?? "A player"} canceled the trade offer.`, events);
+    return { state, events };
   }
 
   const player = assertPlayerTurn(state, action.playerId);
@@ -469,7 +531,7 @@ export const reduceGame = (inputState: GameState, action: GameAction): EngineRes
     log(state, `${player.name} unmortgaged ${tile.label} for $${cost}.`, events);
   }
 
-  if (action.type === "TRADE") {
+  if (action.type === "PROPOSE_TRADE") {
     const target = state.players.find((candidate) => candidate.id === action.targetPlayerId);
     if (!target || target.bankrupt || target.id === player.id) throw new Error("Trade target is not available.");
     const offerMoney = sanitizeMoney(action.offerMoney);
@@ -479,23 +541,16 @@ export const reduceGame = (inputState: GameState, action: GameAction): EngineRes
     if (player.money < offerMoney || target.money < requestMoney) throw new Error("A player cannot afford this trade.");
     if (!offerPropertyIds.every((tileId) => canTransferProperty(state, player, tileId))) throw new Error("Offered properties cannot be traded.");
     if (!requestPropertyIds.every((tileId) => canTransferProperty(state, target, tileId))) throw new Error("Requested properties cannot be traded.");
-
-    changeMoney(state, player, -offerMoney);
-    changeMoney(state, target, offerMoney);
-    changeMoney(state, target, -requestMoney);
-    changeMoney(state, player, requestMoney);
-
-    for (const tileId of offerPropertyIds) {
-      state.properties[tileId].ownerId = target.id;
-      player.ownedPropertyIds = player.ownedPropertyIds.filter((id) => id !== tileId);
-      if (!target.ownedPropertyIds.includes(tileId)) target.ownedPropertyIds.push(tileId);
-    }
-    for (const tileId of requestPropertyIds) {
-      state.properties[tileId].ownerId = player.id;
-      target.ownedPropertyIds = target.ownedPropertyIds.filter((id) => id !== tileId);
-      if (!player.ownedPropertyIds.includes(tileId)) player.ownedPropertyIds.push(tileId);
-    }
-    log(state, `${player.name} completed a trade with ${target.name}.`, events);
+    state.pendingTrade = {
+      id: action.tradeId,
+      proposerId: player.id,
+      targetPlayerId: target.id,
+      offerMoney,
+      requestMoney,
+      offerPropertyIds,
+      requestPropertyIds,
+    };
+    log(state, `${player.name} offered a trade to ${target.name}.`, events);
   }
 
   if (action.type === "DECLARE_BANKRUPTCY") {

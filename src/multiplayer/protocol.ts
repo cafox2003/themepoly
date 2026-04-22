@@ -28,6 +28,9 @@ export type ClientMessage =
   | {
       type: "REMATCH";
       roomId: string;
+    }
+  | {
+      type: "PING";
     };
 
 export type ServerMessage =
@@ -64,4 +67,7 @@ export type ServerMessage =
   | {
       type: "ERROR";
       message: string;
+    }
+  | {
+      type: "PONG";
     };

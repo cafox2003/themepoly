@@ -22,10 +22,13 @@ interface GameStore {
   sellProperty: (tileId: TileId) => void;
   mortgageProperty: (tileId: TileId) => void;
   unmortgageProperty: (tileId: TileId) => void;
-  trade: (trade: Omit<Extract<GameAction, { type: "TRADE" }>, "type" | "playerId">) => void;
+  proposeTrade: (trade: Omit<Extract<GameAction, { type: "PROPOSE_TRADE" }>, "type" | "playerId" | "tradeId">) => void;
+  acceptTrade: (tradeId: string) => void;
+  cancelTrade: (tradeId: string, playerId?: string) => void;
   declareBankruptcy: () => void;
   updateSettings: (settings: Partial<GameSettings>) => void;
   loadSnapshotFile: (file: File) => Promise<void>;
+  resetToMenu: () => void;
   clearError: () => void;
 }
 
@@ -52,8 +55,14 @@ const normalizeSnapshot = (value: unknown): GameState => {
       ...initial.properties,
       ...snapshot.properties,
     },
+    pendingTrade: snapshot.pendingTrade ?? null,
     log: Array.isArray(snapshot.log) ? snapshot.log.slice(0, 80) : initial.log,
   };
+};
+
+const randomTradeId = () => {
+  if (window.crypto?.randomUUID) return `trade_${window.crypto.randomUUID()}`;
+  return `trade_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -119,9 +128,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get().state;
     get().dispatch(withCurrentPlayer(state, (player) => ({ type: "UNMORTGAGE_PROPERTY", playerId: player.id, tileId })));
   },
-  trade: (trade) => {
+  proposeTrade: (trade) => {
     const state = get().state;
-    get().dispatch(withCurrentPlayer(state, (player) => ({ type: "TRADE", playerId: player.id, ...trade })));
+    get().dispatch(withCurrentPlayer(state, (player) => ({ type: "PROPOSE_TRADE", playerId: player.id, tradeId: randomTradeId(), ...trade })));
+  },
+  acceptTrade: (tradeId) => {
+    const pending = get().state.pendingTrade;
+    const player = get().state.players.find((candidate) => candidate.id === pending?.targetPlayerId);
+    if (!pending || !player) {
+      set({ error: "Trade offer is no longer available." });
+      return;
+    }
+    get().dispatch({ type: "ACCEPT_TRADE", playerId: player.id, tradeId });
+  },
+  cancelTrade: (tradeId, playerId) => {
+    const pending = get().state.pendingTrade;
+    const current = get().state.players[get().state.currentTurn];
+    const requested = get().state.players.find((player) => player.id === playerId);
+    const participant = requested ?? get().state.players.find((player) => player.id === pending?.proposerId || player.id === pending?.targetPlayerId);
+    const player = current && (current.id === pending?.proposerId || current.id === pending?.targetPlayerId) ? current : participant;
+    if (!pending || !player) {
+      set({ error: "Trade offer is no longer available." });
+      return;
+    }
+    get().dispatch({ type: "CANCEL_TRADE", playerId: player.id, tradeId });
   },
   declareBankruptcy: () => {
     const state = get().state;
@@ -139,6 +169,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ error: error instanceof Error ? error.message : "Snapshot could not be loaded." });
     }
   },
+  resetToMenu: () => set({ state: createInitialGameState(), error: null, remoteActionSender: null }),
   clearError: () => set({ error: null }),
 }));
 

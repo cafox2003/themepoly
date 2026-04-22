@@ -55,6 +55,16 @@ describe("Themepoly engine", () => {
     expect(state.log[0].message).toContain("Income Tax");
   });
 
+  it("pays a bonus when landing exactly on GO", () => {
+    let state = startGame();
+    state.players[0].position = 38;
+
+    state = act(state, { type: "ROLL_DICE", playerId: "p1", dice: [1, 1] });
+
+    expect(state.players[0].position).toBe(0);
+    expect(state.players[0].money).toBe(1800);
+  });
+
   it("buys unowned property after landing on it", () => {
     let state = startGame();
 
@@ -267,14 +277,15 @@ describe("Themepoly engine", () => {
     expect(state.players[0].money).toBe(1480);
   });
 
-  it("trades money and clear properties between players", () => {
+  it("requires the target player to accept a trade before assets move", () => {
     let state = startGame();
     setOwner(state, "p1", "BALTIC_AVENUE");
     setOwner(state, "p2", "READING_RAILROAD");
 
     state = act(state, {
-      type: "TRADE",
+      type: "PROPOSE_TRADE",
       playerId: "p1",
+      tradeId: "trade_1",
       targetPlayerId: "p2",
       offerMoney: 100,
       requestMoney: 25,
@@ -282,6 +293,12 @@ describe("Themepoly engine", () => {
       requestPropertyIds: ["READING_RAILROAD"],
     });
 
+    expect(state.pendingTrade?.id).toBe("trade_1");
+    expect(state.properties.BALTIC_AVENUE.ownerId).toBe("p1");
+
+    state = act(state, { type: "ACCEPT_TRADE", playerId: "p2", tradeId: "trade_1" });
+
+    expect(state.pendingTrade).toBeNull();
     expect(state.players[0].money).toBe(1425);
     expect(state.players[1].money).toBe(1575);
     expect(state.properties.BALTIC_AVENUE.ownerId).toBe("p2");

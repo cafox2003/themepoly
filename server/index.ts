@@ -10,6 +10,7 @@ interface Client {
   roomId: string;
   playerId: string | null;
   socket: WebSocket;
+  alive: boolean;
 }
 
 interface Room {
@@ -123,9 +124,17 @@ const attachClient = (room: Room, socket: WebSocket, token: string) => {
     existingRoom?.clients.delete(existingClient.id);
     if (existingRoom) broadcastSeats(existingRoom);
   }
-  const client: Client = { id: randomId("client"), token, roomId: room.id, playerId: null, socket };
+  for (const client of room.clients.values()) {
+    if (client.token === token && client.socket.readyState !== client.socket.OPEN) {
+      room.clients.delete(client.id);
+    }
+  }
+  const client: Client = { id: randomId("client"), token, roomId: room.id, playerId: null, socket, alive: true };
   room.clients.set(client.id, client);
   clientsBySocket.set(socket, client);
+  socket.on("pong", () => {
+    client.alive = true;
+  });
   socket.on("close", () => {
     room.clients.delete(client.id);
     broadcastSeats(room);
@@ -206,11 +215,26 @@ wss.on("connection", (socket) => {
       if (message.type === "CLAIM_PLAYER") claimSeat(socket, message);
       if (message.type === "ACTION") applyAction(socket, message);
       if (message.type === "REMATCH") rematchRoom(socket, message);
+      if (message.type === "PING") send(socket, { type: "PONG" });
     } catch (error) {
       send(socket, { type: "ERROR", message: error instanceof Error ? error.message : "Multiplayer error." });
     }
   });
 });
+
+const keepAliveInterval = setInterval(() => {
+  for (const socket of wss.clients) {
+    const client = clientsBySocket.get(socket);
+    if (client && !client.alive) {
+      socket.terminate();
+      continue;
+    }
+    if (client) client.alive = false;
+    socket.ping();
+  }
+}, 30000);
+
+wss.on("close", () => clearInterval(keepAliveInterval));
 
 server.listen(PORT, () => {
   console.log(`Themepoly multiplayer server listening on http://localhost:${PORT}`);
