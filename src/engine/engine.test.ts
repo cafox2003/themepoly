@@ -53,6 +53,7 @@ describe("Themepoly engine", () => {
     expect(state.players[0].money).toBe(1500);
     expect(state.players[0].money).toBe(1500 + 200 - 200);
     expect(state.log[0].message).toContain("Income Tax");
+    expect(state.log.some((entry) => entry.message === "Ada passed GO and collected $200.")).toBe(true);
   });
 
   it("pays a bonus when landing exactly on GO", () => {
@@ -63,6 +64,7 @@ describe("Themepoly engine", () => {
 
     expect(state.players[0].position).toBe(0);
     expect(state.players[0].money).toBe(1800);
+    expect(state.log.some((entry) => entry.message === "Ada landed on GO and collected $300.")).toBe(true);
   });
 
   it("buys unowned property after landing on it", () => {
@@ -305,6 +307,25 @@ describe("Themepoly engine", () => {
     expect(state.properties.READING_RAILROAD.ownerId).toBe("p1");
     expect(state.players[0].ownedPropertyIds).toContain("READING_RAILROAD");
     expect(state.players[1].ownedPropertyIds).toContain("BALTIC_AVENUE");
+  });
+
+  it("allows players to propose trades outside turn order", () => {
+    let state = startGame();
+    setOwner(state, "p2", "READING_RAILROAD");
+
+    state = act(state, {
+      type: "PROPOSE_TRADE",
+      playerId: "p2",
+      tradeId: "trade_2",
+      targetPlayerId: "p1",
+      offerMoney: 0,
+      requestMoney: 10,
+      offerPropertyIds: ["READING_RAILROAD"],
+      requestPropertyIds: [],
+    });
+
+    expect(state.currentTurn).toBe(0);
+    expect(state.pendingTrade).toMatchObject({ id: "trade_2", proposerId: "p2", targetPlayerId: "p1" });
   });
 
   it("lets a player sell assets after rent puts them below zero", () => {

@@ -17,9 +17,10 @@ interface MultiplayerStore {
   connect: (url: string) => Promise<void>;
   disconnect: () => void;
   createRoom: (players: Array<{ name: string; tokenId: string }>) => void;
-  joinRoom: (roomId: string, playerName: string) => void;
+  joinRoom: (roomId: string, playerName: string, tokenId?: string) => void;
   claimPlayer: (playerId: string, playerName?: string) => void;
   rematchRoom: () => void;
+  loadRoomState: (state: GameState) => boolean;
   sendAction: (action: GameAction) => boolean;
   clearError: () => void;
 }
@@ -31,6 +32,7 @@ let heartbeatTimer: number | null = null;
 let reconnectAttempt = 0;
 let lastRoomId = "";
 let lastPlayerName = "Player";
+let lastTokenId: string | undefined;
 const clientTokenKey = "themepoly-client-token";
 
 const randomToken = () => {
@@ -91,6 +93,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   error: null,
   connect: (url) =>
     new Promise((resolve, reject) => {
+      let settled = false;
       if (socket) {
         intentionalClose = true;
         socket.close();
@@ -102,6 +105,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       socket = new WebSocket(url);
 
       socket.onopen = () => {
+        settled = true;
         reconnectAttempt = 0;
         useGameStore.getState().setRemoteActionSender((action) => get().sendAction(action));
         set({ status: "connected", error: null });
@@ -110,8 +114,11 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       };
       socket.onerror = () => {
         const error = new Error("Could not connect to multiplayer server.");
-        set({ status: "offline", error: error.message });
-        reject(error);
+        set({ status: "offline", error: reconnectAttempt > 0 ? "Still reconnecting to multiplayer server..." : error.message });
+        if (!settled) {
+          settled = true;
+          reject(error);
+        }
       };
       socket.onclose = () => {
         useGameStore.getState().setRemoteActionSender(null);
@@ -125,19 +132,16 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
           lastRoomId = previousRoomId;
           lastPlayerName = previousPlayerName;
         }
-        set({
-          status: "offline",
-          error: wasIntentional ? null : "Connection lost. Reconnecting...",
-        });
+        set({ status: wasIntentional ? "offline" : previousRoomId ? "connecting" : "offline", error: wasIntentional ? null : "Connection lost. Reconnecting..." });
         if (!wasIntentional && previousRoomId) {
           const scheduleReconnect = () => {
-            if (get().status !== "offline") return;
+            if (get().status === "connected") return;
             const delay = Math.min(30000, 1000 * 2 ** reconnectAttempt);
             reconnectAttempt += 1;
             reconnectTimer = window.setTimeout(() => {
-              if (get().status !== "offline") return;
+              if (get().status === "connected") return;
               get().connect(get().url)
-                .then(() => get().joinRoom(lastRoomId, lastPlayerName))
+                .then(() => get().joinRoom(lastRoomId, lastPlayerName, lastTokenId))
                 .catch(() => scheduleReconnect());
             }, delay);
           };
@@ -185,11 +189,12 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       set({ error: error instanceof Error ? error.message : "Could not create room." });
     }
   },
-  joinRoom: (roomId, playerName) => {
+  joinRoom: (roomId, playerName, tokenId) => {
     try {
       lastRoomId = roomId.trim();
       lastPlayerName = playerName.trim() || "Player";
-      send({ type: "JOIN_ROOM", roomId: lastRoomId, clientToken: get().clientToken, playerName: lastPlayerName });
+      lastTokenId = tokenId;
+      send({ type: "JOIN_ROOM", roomId: lastRoomId, clientToken: get().clientToken, playerName: lastPlayerName, tokenId });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Could not join room." });
     }
@@ -208,6 +213,17 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       send({ type: "REMATCH", roomId });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Could not start rematch." });
+    }
+  },
+  loadRoomState: (state) => {
+    const roomId = get().roomId;
+    if (!roomId || get().status !== "connected") return false;
+    try {
+      send({ type: "LOAD_STATE", roomId, state });
+      return true;
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Could not load game for room." });
+      return false;
     }
   },
   sendAction: (action) => {

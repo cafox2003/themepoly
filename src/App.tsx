@@ -71,6 +71,17 @@ const buildingLabel = (houses: number) => {
 
 const moneyLabel = (amount: number) => `${amount >= 0 ? "+" : "-"}$${Math.abs(amount)}`;
 
+const uniqueTokenId = (preferredId: string, usedIds: Set<string>, tokens: typeof CLASSIC_THEME.tokens) => {
+  if (tokens.some((token) => token.id === preferredId) && !usedIds.has(preferredId)) return preferredId;
+  return tokens.find((token) => !usedIds.has(token.id))?.id ?? preferredId;
+};
+
+const connectionLabel = (status: ReturnType<typeof useMultiplayerStore.getState>["status"]) => {
+  if (status === "connected") return "Connected";
+  if (status === "connecting") return "Reconnecting";
+  return "Disconnected";
+};
+
 const themedLogMessage = (message: string, theme: typeof CLASSIC_THEME, board: BoardTile[]) => {
   let next = message;
   for (const tile of board) {
@@ -118,7 +129,7 @@ function SetupPanel() {
   const [joinPlayerName, setJoinPlayerName] = useState(defaultNames[0]);
   const [tokenIds, setTokenIds] = useState(() => defaultNames.map((_, index) => theme.tokens[index % theme.tokens.length].id));
   const [multiplayerTokenId, setMultiplayerTokenId] = useState(() => theme.tokens[0]?.id ?? "car");
-  const [setupMode, setSetupMode] = useState<"single" | "multi">("single");
+  const [setupMode, setSetupMode] = useState<"single" | "multi">(() => (new URLSearchParams(window.location.search).get("room") ? "multi" : "single"));
 
   const setupPlayers = (firstPlayerName?: string) =>
     names.slice(0, playerCount).map((name, index) => ({
@@ -129,10 +140,15 @@ function SetupPanel() {
   const multiplayerPlayers = () => {
     const hostName = joinPlayerName.trim() || defaultNames[0];
     const hostToken = theme.tokens.some((token) => token.id === multiplayerTokenId) ? multiplayerTokenId : theme.tokens[0]?.id ?? "car";
-    return Array.from({ length: playerCount }, (_, index) => ({
-      name: index === 0 ? hostName : `Open Seat ${index + 1}`,
-      tokenId: index === 0 ? hostToken : theme.tokens[index % theme.tokens.length].id,
-    }));
+    const usedTokens = new Set([hostToken]);
+    return Array.from({ length: playerCount }, (_, index) => {
+      const tokenId = index === 0 ? hostToken : uniqueTokenId(theme.tokens[index % theme.tokens.length].id, usedTokens, theme.tokens);
+      usedTokens.add(tokenId);
+      return {
+        name: index === 0 ? hostName : `Open Seat ${index + 1}`,
+        tokenId,
+      };
+    });
   };
 
   useEffect(() => {
@@ -151,12 +167,12 @@ function SetupPanel() {
 
   const hostRoom = async () => {
     if (multiplayerStatus !== "connected") await connect(serverUrl);
-    createRoom(rollForFirst(multiplayerPlayers()));
+    createRoom(multiplayerPlayers());
   };
 
   const joinExistingRoom = async () => {
     if (multiplayerStatus !== "connected") await connect(serverUrl);
-    joinRoom(joinRoomId, joinPlayerName);
+    joinRoom(joinRoomId, joinPlayerName, multiplayerTokenId);
   };
 
   return (
@@ -214,7 +230,7 @@ function SetupPanel() {
                     }}
                   >
                     {theme.tokens.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>
+                      <option key={candidate.id} value={candidate.id} disabled={tokenIds.some((usedTokenId, usedIndex) => usedIndex !== index && usedTokenId === candidate.id)}>
                         {candidate.label}
                       </option>
                     ))}
@@ -233,7 +249,7 @@ function SetupPanel() {
       {setupMode === "multi" ? <section className="setup-multiplayer">
         <div>
           <p className="eyebrow">Multiplayer</p>
-          <strong>{multiplayerStatus === "connected" ? `Connected${multiplayerRoomId ? ` · ${multiplayerRoomId}` : ""}` : "Server connection"}</strong>
+          <strong>{`${connectionLabel(multiplayerStatus)}${multiplayerRoomId ? ` · ${multiplayerRoomId}` : ""}`}</strong>
         </div>
         <label>
           Server
@@ -259,7 +275,7 @@ function SetupPanel() {
           <button type="button" onClick={() => void hostRoom()}>
             Host room
           </button>
-          <button type="button" disabled={multiplayerStatus === "offline"} onClick={() => confirmDisconnect(disconnect)}>
+          <button type="button" className="danger-button" disabled={multiplayerStatus === "offline"} onClick={() => confirmDisconnect(disconnect)}>
             Disconnect
           </button>
         </div>
@@ -433,6 +449,7 @@ function Board() {
           <DiceDisplay dice={state.dice} />
           <p className="phase">{state.phase.replaceAll("_", " ")}</p>
         </div>
+        <MoneyFlashLayer />
         <BoardTokenLayer />
       </div>
     </div>
@@ -685,11 +702,11 @@ function MultiplayerStatusPanel() {
   };
 
   return (
-    <section className="multiplayer-status">
+    <section className={`multiplayer-status status-${status}`}>
       <div>
-        <strong>{status === "connected" ? "Multiplayer connected" : "Multiplayer"}</strong>
+        <strong>Multiplayer {connectionLabel(status).toLocaleLowerCase()}</strong>
         {roomId ? <span>Room {roomId}</span> : null}
-        {claimedPlayer ? <span>You control {claimedPlayer.name}</span> : status === "connected" ? <span>Claim a player seat</span> : <span>Offline</span>}
+        {claimedPlayer ? <span>You control {claimedPlayer.name}</span> : status === "connected" ? <span>Claim a player seat</span> : <span>{status === "connecting" ? "Trying to reconnect" : "Not connected"}</span>}
         {status === "connected" ? <span>{claimedSeatCount} of {players.length} seats claimed</span> : null}
       </div>
       {status === "connected" ? (
@@ -697,7 +714,7 @@ function MultiplayerStatusPanel() {
           <button type="button" disabled={!roomId} onClick={() => void copyRoom()}>
             {copied ? "Copied" : "Copy room"}
           </button>
-          <button type="button" onClick={() => confirmDisconnect(disconnect)}>
+          <button type="button" className="danger-button" onClick={() => confirmDisconnect(disconnect)}>
             Disconnect
           </button>
         </div>
@@ -733,7 +750,9 @@ function TradePanel() {
   const multiplayerStatus = useMultiplayerStore((store) => store.status);
   const claimedPlayerId = useMultiplayerStore((store) => store.claimedPlayerId);
   const current = state.players[state.currentTurn];
-  const targets = state.players.filter((player) => player.id !== current?.id && !player.bankrupt);
+  const claimedPlayer = state.players.find((player) => player.id === claimedPlayerId);
+  const actor = multiplayerStatus === "connected" ? claimedPlayer : current;
+  const targets = state.players.filter((player) => player.id !== actor?.id && !player.bankrupt);
   const [targetPlayerId, setTargetPlayerId] = useState(targets[0]?.id ?? "");
   const [offerMoney, setOfferMoney] = useState(0);
   const [requestMoney, setRequestMoney] = useState(0);
@@ -747,13 +766,13 @@ function TradePanel() {
     }
   }, [targetPlayerId, targets]);
 
-  if (!current || targets.length === 0) return null;
+  if (!actor || targets.length === 0) return null;
 
   const target = targets.find((player) => player.id === targetPlayerId) ?? targets[0];
   const pendingTrade = state.pendingTrade;
   const pendingProposer = state.players.find((player) => player.id === pendingTrade?.proposerId);
   const pendingTarget = state.players.find((player) => player.id === pendingTrade?.targetPlayerId);
-  const canSendOffer = multiplayerStatus !== "connected" || claimedPlayerId === current.id;
+  const canSendOffer = multiplayerStatus !== "connected" || claimedPlayerId === actor.id;
   const canAcceptPending = pendingTrade && (multiplayerStatus !== "connected" || claimedPlayerId === pendingTrade.targetPlayerId);
   const canCancelPending = pendingTrade && (
     multiplayerStatus !== "connected" ||
@@ -777,7 +796,7 @@ function TradePanel() {
       requestMoney,
       offerPropertyIds,
       requestPropertyIds,
-    });
+    }, actor.id);
     setOfferMoney(0);
     setRequestMoney(0);
     setOfferPropertyIds([]);
@@ -818,8 +837,8 @@ function TradePanel() {
           </label>
         </div>
         <TradePropertyPicker
-          title={`${current.name} gives`}
-          tiles={tradeableFor(current)}
+          title={`${actor.name} gives`}
+          tiles={tradeableFor(actor)}
           selected={offerPropertyIds}
           onToggle={(tileId) => toggleTile(tileId, offerPropertyIds, setOfferPropertyIds)}
           theme={theme}
@@ -943,6 +962,8 @@ function SettingsPanel() {
 function GameFilesPanel() {
   const state = useGameStore((store) => store.state);
   const loadSnapshotFile = useGameStore((store) => store.loadSnapshotFile);
+  const multiplayerStatus = useMultiplayerStore((store) => store.status);
+  const loadRoomState = useMultiplayerStore((store) => store.loadRoomState);
 
   const downloadSnapshot = () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
@@ -972,7 +993,9 @@ function GameFilesPanel() {
               type="file"
               onChange={(event) => {
                 const file = event.target.files?.[0];
-                if (file) void loadSnapshotFile(file);
+                if (file) void loadSnapshotFile(file).then((loaded) => {
+                  if (loaded && multiplayerStatus === "connected") loadRoomState(useGameStore.getState().state);
+                });
                 event.currentTarget.value = "";
               }}
             />
@@ -1201,7 +1224,6 @@ export default function App() {
 
   return (
     <main className="app" style={appThemeStyle(theme)}>
-      <MoneyFlashLayer />
       <header className="topbar">
         <div>
           <p className="eyebrow">Theme-ready engine</p>

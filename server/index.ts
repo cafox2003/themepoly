@@ -25,6 +25,7 @@ const rooms = new Map<string, Room>();
 const clientsBySocket = new WeakMap<WebSocket, Client>();
 
 const randomId = (prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 8)}`;
+const randomRoomId = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 const randomDie = () => (Math.floor(Math.random() * 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6;
 
 const send = (socket: WebSocket, message: ServerMessage) => {
@@ -68,7 +69,27 @@ const renamePlayer = (room: Room, playerId: string, playerName?: string) => {
   const name = playerName?.trim();
   if (!name) return;
   const player = room.state.players.find((candidate) => candidate.id === playerId);
-  if (player) player.name = name;
+  if (!player) return;
+  const usedNames = new Set(
+    room.state.players
+      .filter((candidate) => candidate.id !== playerId)
+      .map((candidate) => candidate.name.trim().toLocaleLowerCase()),
+  );
+  let uniqueName = name;
+  let suffix = 2;
+  while (usedNames.has(uniqueName.toLocaleLowerCase())) {
+    uniqueName = `${name} ${suffix}`;
+    suffix += 1;
+  }
+  player.name = uniqueName;
+};
+
+const setPlayerToken = (room: Room, playerId: string, tokenId?: string) => {
+  if (!tokenId) return;
+  const player = room.state.players.find((candidate) => candidate.id === playerId);
+  if (!player) return;
+  const tokenTaken = room.state.players.some((candidate) => candidate.id !== playerId && candidate.tokenId === tokenId);
+  if (!tokenTaken) player.tokenId = tokenId;
 };
 
 const claimPlayer = (room: Room, client: Client, playerId: string, playerName?: string) => {
@@ -84,11 +105,12 @@ const claimPlayer = (room: Room, client: Client, playerId: string, playerName?: 
   broadcastSeats(room);
 };
 
-const claimFirstOpenPlayer = (room: Room, client: Client, playerName?: string) => {
+const claimFirstOpenPlayer = (room: Room, client: Client, playerName?: string, tokenId?: string) => {
   const existingSeat = [...room.seats.entries()].find(([, token]) => token === client.token);
   if (existingSeat) {
     client.playerId = existingSeat[0];
     renamePlayer(room, client.playerId, playerName);
+    setPlayerToken(room, client.playerId, tokenId);
     return;
   }
   const player = room.state.players.find((candidate) => !candidate.bankrupt && !room.seats.has(candidate.id));
@@ -96,6 +118,7 @@ const claimFirstOpenPlayer = (room: Room, client: Client, playerName?: string) =
     room.seats.set(player.id, client.token);
     client.playerId = player.id;
     renamePlayer(room, player.id, playerName);
+    setPlayerToken(room, player.id, tokenId);
   }
 };
 
@@ -145,7 +168,7 @@ const attachClient = (room: Room, socket: WebSocket, token: string) => {
 const createRoom = (socket: WebSocket, message: Extract<ClientMessage, { type: "CREATE_ROOM" }>) => {
   const result = reduceGame({} as GameState, { type: "START_GAME", players: message.players });
   const room: Room = {
-    id: randomId("room"),
+    id: randomRoomId(),
     state: result.state,
     clients: new Map(),
     seats: new Map(),
@@ -161,7 +184,7 @@ const joinRoom = (socket: WebSocket, message: Extract<ClientMessage, { type: "JO
   const room = rooms.get(message.roomId);
   if (!room) throw new Error("Room not found.");
   const client = attachClient(room, socket, message.clientToken);
-  claimFirstOpenPlayer(room, client, message.playerName);
+  claimFirstOpenPlayer(room, client, message.playerName, message.tokenId);
   sendRoomSnapshot(room, client, "ROOM_JOINED");
   broadcastSeats(room);
   broadcastState(room);
@@ -199,6 +222,22 @@ const rematchRoom = (socket: WebSocket, message: Extract<ClientMessage, { type: 
   broadcastSeats(room);
 };
 
+const loadRoomState = (socket: WebSocket, message: Extract<ClientMessage, { type: "LOAD_STATE" }>) => {
+  const client = clientsBySocket.get(socket);
+  const room = rooms.get(message.roomId);
+  if (!client || !room || client.roomId !== room.id) throw new Error("Room not found.");
+  if (!client.playerId) throw new Error("Claim a player before loading a game.");
+  if (message.state.version !== "1.0" || !Array.isArray(message.state.players) || !message.state.properties || !message.state.settings) {
+    throw new Error("Snapshot is not a valid Themepoly v1 game.");
+  }
+  room.state = message.state;
+  for (const playerId of [...room.seats.keys()]) {
+    if (!room.state.players.some((player) => player.id === playerId && !player.bankrupt)) room.seats.delete(playerId);
+  }
+  broadcastState(room, [`${room.state.players.find((player) => player.id === client.playerId)?.name ?? "A player"} loaded a saved game.`]);
+  broadcastSeats(room);
+};
+
 const server = createServer((_request, response) => {
   response.writeHead(200, { "Content-Type": "application/json" });
   response.end(JSON.stringify({ ok: true, service: "themepoly-multiplayer" }));
@@ -215,6 +254,7 @@ wss.on("connection", (socket) => {
       if (message.type === "CLAIM_PLAYER") claimSeat(socket, message);
       if (message.type === "ACTION") applyAction(socket, message);
       if (message.type === "REMATCH") rematchRoom(socket, message);
+      if (message.type === "LOAD_STATE") loadRoomState(socket, message);
       if (message.type === "PING") send(socket, { type: "PONG" });
     } catch (error) {
       send(socket, { type: "ERROR", message: error instanceof Error ? error.message : "Multiplayer error." });

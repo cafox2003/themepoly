@@ -28,6 +28,7 @@ const createInitialGameState = () => ({
     chanceDeckIndex: 0,
     communityChestDeckIndex: 0,
     winnerId: null,
+    pendingTrade: null,
     log: [{ id: 1, message: "Create a local pass-and-play game to begin." }],
 });
 exports.createInitialGameState = createInitialGameState;

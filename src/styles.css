@@ -237,6 +237,7 @@ button:disabled {
   min-width: 0;
   min-height: 0;
   overflow: visible;
+  position: relative;
 }
 
 .board {
@@ -395,6 +396,13 @@ button:disabled {
   display: inline-flex;
   gap: 1px;
   justify-content: center;
+}
+
+.tile .building-mark {
+  position: absolute;
+  right: 4px;
+  top: 14px;
+  z-index: 4;
 }
 
 .house-icons span,
@@ -773,6 +781,16 @@ button:disabled {
   padding: 9px 10px;
 }
 
+.multiplayer-status.status-offline {
+  background: #fff0f0;
+  border-color: #8f1111;
+}
+
+.multiplayer-status.status-connecting {
+  background: #fff7d6;
+  border-color: #9a6b00;
+}
+
 .multiplayer-status div,
 .file-tools {
   display: grid;
@@ -854,10 +872,10 @@ button:disabled {
   gap: 8px;
   left: 50%;
   pointer-events: none;
-  position: fixed;
+  position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(420px, calc(100vw - 32px));
+  width: min(420px, calc(100% - 32px));
   z-index: 20;
 }
 
@@ -1005,8 +1023,14 @@ button:disabled {
   background: var(--panel-bg, #ffffff);
   border: 2px solid var(--text, #17201a);
   border-radius: 8px;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+}
+
+.utility-tabs[open] {
+  display: flex;
+  flex-direction: column;
 }
 
 .utility-tabs > summary {
@@ -1041,7 +1065,9 @@ button:disabled {
 }
 
 .tab-panel {
-  max-height: none;
+  flex: 1 1 auto;
+  max-height: min(620px, 56dvh);
+  min-height: 0;
   overflow: auto;
   padding: 12px;
 }
@@ -1206,8 +1232,8 @@ button:disabled {
   .game-layout {
     grid-template-areas:
       "board"
-      "left"
-      "right";
+      "right"
+      "left";
     grid-template-columns: 1fr;
     height: auto;
     overflow: visible;
@@ -1289,6 +1315,11 @@ button:disabled {
 
   .tile {
     padding: 3px 2px;
+  }
+
+  .tile .building-mark {
+    right: 2px;
+    top: 9px;
   }
 
   .color-band {

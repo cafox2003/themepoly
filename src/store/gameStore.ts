@@ -22,12 +22,12 @@ interface GameStore {
   sellProperty: (tileId: TileId) => void;
   mortgageProperty: (tileId: TileId) => void;
   unmortgageProperty: (tileId: TileId) => void;
-  proposeTrade: (trade: Omit<Extract<GameAction, { type: "PROPOSE_TRADE" }>, "type" | "playerId" | "tradeId">) => void;
+  proposeTrade: (trade: Omit<Extract<GameAction, { type: "PROPOSE_TRADE" }>, "type" | "playerId" | "tradeId">, playerId?: string) => void;
   acceptTrade: (tradeId: string) => void;
   cancelTrade: (tradeId: string, playerId?: string) => void;
   declareBankruptcy: () => void;
   updateSettings: (settings: Partial<GameSettings>) => void;
-  loadSnapshotFile: (file: File) => Promise<void>;
+  loadSnapshotFile: (file: File) => Promise<boolean>;
   resetToMenu: () => void;
   clearError: () => void;
 }
@@ -128,9 +128,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get().state;
     get().dispatch(withCurrentPlayer(state, (player) => ({ type: "UNMORTGAGE_PROPERTY", playerId: player.id, tileId })));
   },
-  proposeTrade: (trade) => {
+  proposeTrade: (trade, playerId) => {
     const state = get().state;
-    get().dispatch(withCurrentPlayer(state, (player) => ({ type: "PROPOSE_TRADE", playerId: player.id, tradeId: randomTradeId(), ...trade })));
+    const player = playerId ? state.players.find((candidate) => candidate.id === playerId) : state.players[state.currentTurn];
+    if (!player) {
+      set({ error: "Trade player is not available." });
+      return;
+    }
+    get().dispatch({ type: "PROPOSE_TRADE", playerId: player.id, tradeId: randomTradeId(), ...trade });
   },
   acceptTrade: (tradeId) => {
     const pending = get().state.pendingTrade;
@@ -165,8 +170,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     try {
       const snapshot = normalizeSnapshot(JSON.parse(await file.text()));
       set({ state: snapshot, error: null });
+      return true;
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Snapshot could not be loaded." });
+      return false;
     }
   },
   resetToMenu: () => set({ state: createInitialGameState(), error: null, remoteActionSender: null }),

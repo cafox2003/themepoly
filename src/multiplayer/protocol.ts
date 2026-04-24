@@ -13,6 +13,7 @@ export type ClientMessage =
       roomId: string;
       clientToken: string;
       playerName: string;
+      tokenId?: string;
     }
   | {
       type: "CLAIM_PLAYER";
@@ -28,6 +29,11 @@ export type ClientMessage =
   | {
       type: "REMATCH";
       roomId: string;
+    }
+  | {
+      type: "LOAD_STATE";
+      roomId: string;
+      state: GameState;
     }
   | {
       type: "PING";
